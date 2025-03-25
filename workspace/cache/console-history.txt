@@ -1,0 +1,22 @@
+await Beta.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
+const Beta = NewToken.attach('0xa513E6E4b8f2a923D98304ec87F64353C4D5C853')
+await Alpha.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
+const Alpha = NewToken.attach('0x0165878A594ca255338adfa4d48449f69242Eb8F')
+const NewToken = await hre.ethers.getContractFactory("NewToken")
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+exit
+const Alpha = NewToken.attach('0x0165878A594ca255338adfa4d48449f69242Eb8F')
+const NewToken = await hre.ethers.getContractFactory("NewToken")
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+const Alpha = NewToken.attach('
+onst NewToken = await hre.ethers.getContractFactory("NewToken");
+await Beta.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
+const Beta = NewToken.attach('0xa513E6E4b8f2a923D98304ec87F64353C4D5C853')
+await Alpha.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
+const Alpha = NewToken.attach('0x0165878A594ca255338adfa4d48449f69242Eb8F')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+await Beta.transfer('0xB8f184757Be5482E675B35541581e696A094d85c', 100000000000000000000000n)
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+await Alpha.transfer('0xB8f184757Be5482E675B35541581e696A094d85c', 100000000000000000000000n)
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
