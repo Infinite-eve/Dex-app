@@ -57,7 +57,7 @@ function App() {
             inputAmount,
             mappedTokenOut
         );
-        return result; //problem is here
+        return result;
     } catch (error) {
         console.error("Error calculating output amount:", error);
         return '0';
