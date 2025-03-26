@@ -1,3 +1,13 @@
+await pool.addLiquidity(ethers.parseEther("1000"))
+await Beta.approve('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', ethers.parseEther("1000000"))
+await Alpha.approve('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', ethers.parseEther("1000000"))
+const pool = Pool.attach('0x340BdD53512704732F8F69104d674BB5a5F3D6aD')
+const Pool = await hre.ethers.getContractFactory("Pool");
+const Beta = NewToken.attach('0xa513E6E4b8f2a923D98304ec87F64353C4D5C853')
+const Alpha = NewToken.attach('0x0165878A594ca255338adfa4d48449f69242Eb8F')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+exit
+const NewToken = await hre.ethers.getContractFactory("NewToken");
 await Beta.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
 const Beta = NewToken.attach('0xa513E6E4b8f2a923D98304ec87F64353C4D5C853')
 await Alpha.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
