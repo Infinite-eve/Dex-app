@@ -1,5 +1,5 @@
 const { ethers } = require("hardhat");
-const addresses = require("/usr/app/workspace/frontend/src/utils/deployed-addresses.json"); 
+const addresses = require("../frontend/src/utils/deployed-addresses.json"); 
 
 async function main() {
   // Connect to the Hardhat network

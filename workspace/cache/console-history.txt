@@ -1,3 +1,57 @@
+await pool.addLiquidity(ethers.parseEther("1000"))
+await Beta.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+const pool = Pool.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0')
+const Pool = await hre.ethers.getContractFactory("Pool");
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+ta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+const Alpha = NewToken.attach('0x5const Be
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+const pool = Pool.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0')
+const Pool = await hre.ethers.getContractFactory("Pool");
+await pool.addLiquidity(ethers.parseEther("1000"))
+await pool.addLiquidity
+await Beta.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+'0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+await Alpha.approve(
+const pool = Pool.attach('0x9fE46736679d2D
+const Pool = await hre.ethers.getContractFactory("Pool");
+await Beta.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+await Alpha.approve('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', ethers.parseEther("1000000"))
+const pool = Pool.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0')
+const Pool = await hre.ethers.getContractFactory("Pool");
+await pool.addLiquidity(ethers.parseEther("1000"))
+await Beta.approve('0x9frseEther("1000000"))
+await Alpha.approve(rs.parseEther("1000000"))
+const pool = Pool.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0')
+const Pool = await hre.ethers.getContractFactory("Pool");
+const pool = Pool.attach('0x340BdD53512704732F8F69104d674BB5a5F3D6aD')
+const Pool = await hre.ethers.getContractFactory("Pool");
+const pool = Pool.attach('0x340BdD53512704const Pool = await hre.ethers.getContractFactory("Pool");
+const Pool = await hre.ethers.getContractFactory("Pool");
+await Beta.approve('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', ethers.parseEther("1000000"))
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+await Alpha.approve('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', ethers.parseEther("1000000"))
+await pool.addLiquidity(ethers.parseEther("1000"))
+const pool = Pool.attach('0x340BdD53512704732F8F69104d674BB5a5F3D6aD')
+const Pool = await hre.ethers.getContractFactory("Pool");
+const pool = Pool.attach('0x340BdD5351270
+const Pool = await hre.ethers.getContractFactory("Pool");
+const pool = Pool.attach('0x340BdD53512704732F8F69104d674BB5a5F3D6aD')
+const Pool = await hre.ethers.getContractFactory("Pool");
+npx hardhat console --network localhost
 await Beta.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
 const Beta = NewToken.attach('0x68B1D87F95878fE05B998F19b66F4baba5De1aed')
 await Alpha.transfer('0x340BdD53512704732F8F69104d674BB5a5F3D6aD', 100000000000000000000000n)
