@@ -116,6 +116,42 @@
         "IERC20"
       ]
     },
+    "D:\\code\\Defi-DEX\\workspace\\node_modules\\@openzeppelin\\contracts\\utils\\Context.sol": {
+      "lastModificationDate": 1743083089363,
+      "contentHash": "2783b901218e982baedae531a748ed8d",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Context"
+      ]
+    },
     "D:\\code\\Defi-DEX\\workspace\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
       "lastModificationDate": 1743083089314,
       "contentHash": "1d1602f392ece4ad9d8619d8330cf62a",
@@ -152,42 +188,6 @@
         "IERC1155Errors",
         "IERC20Errors",
         "IERC721Errors"
-      ]
-    },
-    "D:\\code\\Defi-DEX\\workspace\\node_modules\\@openzeppelin\\contracts\\utils\\Context.sol": {
-      "lastModificationDate": 1743083089363,
-      "contentHash": "2783b901218e982baedae531a748ed8d",
-      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Context"
       ]
     },
     "D:\\code\\Defi-DEX\\workspace\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {

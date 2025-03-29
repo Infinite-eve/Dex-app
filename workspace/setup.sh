@@ -22,6 +22,7 @@ echo "Node version:"
 node -v
 
 # 安装根目录依赖
+#OpenZeppelin合约是一个用Solidity编写的模块化、可重用且安全的智能合约库。
 echo "Installing root dependencies..."
 npm install --save-exact \
     hardhat@2.22.19 \
