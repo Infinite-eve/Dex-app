@@ -132,12 +132,32 @@ export const addLiquidity = async (contracts, amount0) => {
       await contracts.token0.contract.approve(contracts.pool.address, amount0Wei);
       await contracts.token1.contract.approve(contracts.pool.address, amount1Wei);
       
-      // Add liquidity
+      // Add liquidity 
       const tx = await contracts.pool.contract.addLiquidity(amount0Wei);
       await tx.wait();
       return tx;
   } catch (error) {
       console.error("Error in addLiquidity:", error);
       throw error;
+  }
+};
+
+// 取流动性
+export const withdrawingliquidity = async (contracts, amount0) => {
+  try {
+    const amount0Wei = ethers.parseEther(amount0.toString());
+    const amount1Wei = await contracts.pool.contract.getRequiredAmount1(amount0Wei);
+
+    // Approve both tokens
+    await contracts.token0.contract.approve(contracts.pool.address, amount0Wei);
+    await contracts.token1.contract.approve(contracts.pool.address, amount1Wei);
+    
+    // Withdraw liquidity：应该调的是pool.sol中写好的
+    const tx = await contracts.pool.contract.withdrawingliquidity(amount0Wei);
+    await tx.wait();
+    return tx;
+  } catch (error) {
+    console.error("Error in withdrawingliquidity:", error);
+    throw error;
   }
 };

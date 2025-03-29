@@ -8,10 +8,9 @@ import {Card, Tabs, Tab, Row, Col, Form, Button} from 'react-bootstrap';
 /* Interaction with Backend */
 import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut,getContracts, getPoolInfo, getTokenBalances, getRequiredAmount1, swapTokens, addLiquidity } from './utils/contract';      // Import helper functions
+import { getAmountOut,getContracts, getPoolInfo, getTokenBalances, getRequiredAmount1, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
 
 function App() {
-
   /* wallet related */
   const [isWalletConnected, setIsWalletConnected] = useState(false); // Track wallet connection
   const [account, setAccount] = useState(null);
@@ -32,6 +31,10 @@ function App() {
   /* add liquidity related */
   const [token0Amount, setToken0Amount] = useState('');
   const [token1Amount, setToken1Amount] = useState('');
+  
+  /* withdraw liquidity related */
+  // const [withdrawAmount1, setWithdrawAmount1] = useState('');
+  // const [withdrawAmount2, setWithdrawAmount2] = useState('');
   
   // switch token button
   const handleTokenSwitch = () => {
@@ -180,6 +183,24 @@ function App() {
     } catch (error) {
         console.error("Detailed error:", error);
         alert(`Failed to add liquidity: ${error.message}`);
+    }
+  };
+
+  // todo: infinite zhou: 确认
+  const handleWithdrawLiquidity = async () => {
+    try {
+        if (!contracts || !account) {
+            throw new Error("Contracts or account not initialized");
+        }
+        
+        // @todo: infinite zhou: 
+        await withdrawingliquidity(contracts, token0Amount);
+
+
+        alert("Liquidity withdrawn successfully!");
+    } catch (error) {
+        console.error("Error withdrawing liquidity:", error);
+        alert(`Failed to withdraw liquidity: ${error.message}`);
     }
   };
   
@@ -351,6 +372,52 @@ function App() {
                       </Button>
                   )}
               </Form>
+            </Tab>
+            <Tab eventKey="withdraw" title="Withdraw Liquidity">
+                <Form style={{padding:"1rem"}}>
+                    <div>First Token</div>
+                    <Row style={{padding:"1rem"}}>
+                        <Col xs={9}>
+                            <Form.Control 
+                                size="lg"
+                                type="number"
+                                placeholder="0"
+                                value={token0Amount}
+                                onChange={handleToken0AmountChange}
+                                min="0"
+                            />
+                        </Col>
+                        <Col>
+                            <Form.Select size="lg" disabled>
+                                <option value="ALPHA">ALPHA</option>
+                                <option value="BETA">BETA</option>
+                            </Form.Select>
+                        </Col>
+                    </Row>
+                    <div style={{padding:'1rem', textAlign: 'center'}}>
+                      <span>+</span>
+                  </div>
+                  <div>Second Token</div>
+                  <Row style={{padding:"1rem"}}>
+                      <Col xs={9}>
+                          <Form.Control size="lg" type="number" placeholder="0" value={token1Amount} disabled />
+                      </Col>
+                      <Col>
+                          <Form.Select size="lg" disabled>
+                              <option value="BETA">BETA</option>
+                          </Form.Select>
+                      </Col>
+                  </Row>
+                </Form>
+                {!isWalletConnected ? (
+                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleConnectWallet}>
+                          Connect Wallet
+                      </Button>
+                  ) : (
+                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleWithdrawLiquidity}>
+                          Withdraw Liquidity
+                      </Button>
+                  )}
             </Tab>
           </Tabs>
         </Card.ImgOverlay>

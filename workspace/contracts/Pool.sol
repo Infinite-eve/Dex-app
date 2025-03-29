@@ -34,6 +34,14 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 indexed amount1
     );
 
+    event WithdrawLiquidity(
+        uint256 indexed lpToken,
+        address token0,
+        uint256 indexed amount0,
+        address token1,
+        uint256 indexed amount1
+    );
+
     event Swapped(
         address tokenIn,
         uint256 indexed amountIn,
@@ -138,7 +146,7 @@ contract Pool is LPToken, ReentrancyGuard {
         if (totalSupply() > 0) {
             amountLP =
                 (amount0 * totalSupply()) /
-                tokenBalances[i_token0_address];
+                tokenBalances[i_token0_address] ;
         } else {
             //首次添加流动性，amountLP等于amount0
             amountLP = amount0;
@@ -170,9 +178,13 @@ contract Pool is LPToken, ReentrancyGuard {
 
     // function to withdraw liquidity
     //销毁LP代币，并转移代币
-    function withdrawingliquidity(uint256 amount0, uint256 amount1) public {
+    // todo: infinite zhou: 确认参数数量
+    function withdrawingliquidity(uint256 amount0) public {
         // input validity check
-        require(amount0 > 0 && amount1 > 0, "Amount must be greater than 0");
+        require(amount0 > 0, "Amount must be greater than 0");
+
+        // calculate and mint liquidity tokens
+        uint256 amount1 = getRequiredAmount1(amount0);
 
         // calculate and burn liquidity tokens
         uint256 amountLP = (amount0 * totalSupply()) /
@@ -189,6 +201,14 @@ contract Pool is LPToken, ReentrancyGuard {
         // withdraw token1
         require(i_token1.transfer(msg.sender, amount1), "Transfer Beta failed");
         tokenBalances[i_token1_address] -= amount1;
+
+        emit WithdrawLiquidity(
+            amountLP,
+            i_token0_address,
+            amount0,
+            i_token1_address,
+            amount1
+        );
     }
 
     //测试不过，提示补充此函数
