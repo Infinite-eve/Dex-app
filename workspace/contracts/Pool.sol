@@ -17,13 +17,17 @@ contract Pool is LPToken, ReentrancyGuard {
     address immutable i_token0_address;//对 ERC-20 地址的不可变引用
     address immutable i_token1_address;
 
-    uint256 constant INITIAL_RATIO = 2; //token0:token1 = 1:2
+    // 在这里添加 factory 变量声明
+    address public immutable factory;
+
     //初始比例为1:2，即1个token0需要2个token1
     //可以修改初始比例
-
-    mapping(address => uint256) tokenBalances;
+    uint256 constant INITIAL_RATIO = 2; //token0:token1 = 1:2
+    
     //tokenBalances是一个映射，用于存储每个代币的余额
     //key是代币地址，value是代币余额
+    mapping(address => uint256) tokenBalances;
+    
 
     //事件用于记录流动性池中的代币添加和交换操作
     event AddedLiquidity(
@@ -52,7 +56,9 @@ contract Pool is LPToken, ReentrancyGuard {
     //构造函数，用于初始化流动性池
     //token0和token1是流动性池中的两种代币
     //LPToken是用于表示流动性池中代币份额的代币
+    // 替换原有的构造函数
     constructor(address token0, address token1) LPToken("LPToken", "LPT") {
+        factory = msg.sender; // 记录创建者（工厂合约）地址
         i_token0 = IERC20(token0);
         i_token1 = IERC20(token1);
 
