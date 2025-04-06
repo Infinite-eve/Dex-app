@@ -8,7 +8,7 @@ import {Card, Tabs, Tab, Row, Col, Form, Button} from 'react-bootstrap';
 /* Interaction with Backend */
 import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut,getContracts, getPoolInfo, getTokenBalances, getRequiredAmount1, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
+import { getAmountOut,getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
 
 function App() {
   /* wallet related */
@@ -20,7 +20,8 @@ function App() {
   /* balance related */
   const [balance0, setBalance0] = useState(0);
   const [balance1, setBalance1] = useState(0);
-  const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0' });
+  const [balance2, setBalance2] = useState(0);
+  const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0', token2Balance: '0' });
 
   /* swap related */
   const [fromToken, setFromToken] = useState('ALPHA');
@@ -31,10 +32,14 @@ function App() {
   /* add liquidity related */
   const [token0Amount, setToken0Amount] = useState('');
   const [token1Amount, setToken1Amount] = useState('');
+  const [token2Amount, setToken2Amount] = useState('');
   
   /* withdraw liquidity related */
   // const [withdrawAmount1, setWithdrawAmount1] = useState('');
   // const [withdrawAmount2, setWithdrawAmount2] = useState('');
+  
+  // 所有支持的代币
+  const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
   
   // switch token button
   const handleTokenSwitch = () => {
@@ -51,8 +56,8 @@ function App() {
     }
 
     try {
-        const mappedTokenIn = tokenIn === 'ALPHA' ? 'token0' : 'token1';
-        const mappedTokenOut = tokenOut === 'ALPHA' ? 'token0' : 'token1';
+        const mappedTokenIn = tokenIn === 'ALPHA' ? 'token0' : (tokenIn === 'BETA' ? 'token1' : 'token2');
+        const mappedTokenOut = tokenOut === 'ALPHA' ? 'token0' : (tokenOut === 'BETA' ? 'token1' : 'token2');
 
         const result = await getAmountOut(
             contracts,
@@ -84,24 +89,26 @@ function App() {
     setToken0Amount(value);
     
     if (value && !isNaN(value)) {
-        const token1Amount = await calculateToken1Amount(value);
+        const [token1Amount, token2Amount] = await calculateTokenAmounts(value);
         setToken1Amount(token1Amount);
+        setToken2Amount(token2Amount);
     } else {
         setToken1Amount('');
+        setToken2Amount('');
     }
   };
 
-  const calculateToken1Amount = async (amount0) => {
+  const calculateTokenAmounts = async (amount0) => {
       if (!amount0 || !contracts || isNaN(amount0) || amount0 <= 0) {
-          return '0';
+          return ['0', '0'];
       }
 
       try {
-          const result = await getRequiredAmount1(contracts, amount0);
-          return result;
+          const result = await getRequiredAmounts(contracts, amount0);
+          return [result.token1Amount, result.token2Amount];
       } catch (error) {
-          console.error("Error calculating token1 amount:", error);
-          return '0';
+          console.error("Error calculating token amounts:", error);
+          return ['0', '0'];
       }
   };
 
@@ -125,6 +132,7 @@ function App() {
         const balances = await getTokenBalances(initializedContracts, accounts[0]);
         setBalance0(balances.token0);
         setBalance1(balances.token1);
+        setBalance2(balances.token2);
 
         // get pool info
         const info = await getPoolInfo(initializedContracts);
@@ -141,8 +149,8 @@ function App() {
     try {
         if (!contracts) return;
 
-        const tokenIn = fromToken === 'ALPHA' ? 'token0' : 'token1';
-        const tokenOut = toToken === 'ALPHA' ? 'token0' : 'token1';
+        const tokenIn = fromToken === 'ALPHA' ? 'token0' : (fromToken === 'BETA' ? 'token1' : 'token2');
+        const tokenOut = toToken === 'ALPHA' ? 'token0' : (toToken === 'BETA' ? 'token1' : 'token2');
 
         await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
 
@@ -150,6 +158,7 @@ function App() {
         const balances = await getTokenBalances(contracts, account);
         setBalance0(balances.token0);
         setBalance1(balances.token1);
+        setBalance2(balances.token2);
 
         // update pool info
         const newPoolInfo = await getPoolInfo(contracts);
@@ -174,6 +183,7 @@ function App() {
         const balances = await getTokenBalances(contracts, account);
         setBalance0(balances.token0);
         setBalance1(balances.token1);
+        setBalance2(balances.token2);
 
         // update pool info
         const newPoolInfo = await getPoolInfo(contracts);
@@ -186,265 +196,238 @@ function App() {
     }
   };
 
-  // todo: infinite zhou: 确认
   const handleWithdrawLiquidity = async () => {
     try {
         if (!contracts || !account) {
             throw new Error("Contracts or account not initialized");
         }
         
-        // @todo: infinite zhou: 
         await withdrawingliquidity(contracts, token0Amount);
 
+        // update balance
+        const balances = await getTokenBalances(contracts, account);
+        setBalance0(balances.token0);
+        setBalance1(balances.token1);
+        setBalance2(balances.token2);
+
+        // update pool info
+        const newPoolInfo = await getPoolInfo(contracts);
+        setPoolInfo(newPoolInfo);
 
         alert("Liquidity withdrawn successfully!");
     } catch (error) {
-        console.error("Error withdrawing liquidity:", error);
+        console.error("Detailed error:", error);
         alert(`Failed to withdraw liquidity: ${error.message}`);
     }
   };
-  
-  return (
-    <div className="App">
-      <header className="App-header">
-      <Card
-        border="info"
-        bg="dark"
-        key="dark"
-        text="white"
-        style={{ width: "50rem"}}
-        className="mb-2"
-      >
-      <Card.Body>
-        <Card.Title>Liquidity Pool Balances</Card.Title>
-        <Row>
-        <Card.Text as={Col} >
-          {poolInfo.token0Balance} ALPHA
-        </Card.Text>
-        <Card.Text as={Col}>
-          {poolInfo.token1Balance} BETA
-        </Card.Text>
-        </Row>
-      </Card.Body>
-    </Card>
 
-      <Card
-        border="info"
-        bg="dark"
-        key="dark"
-        text="white"
-        style={{ width: "50rem", marginTop: "3rem" }}
-        className="mb-2"
-      >
-        <Card.Img src={Logo} style={{padding:"2rem"}}/>
-        <Card.ImgOverlay>
-          <Card.Title style={{fontWeight:"bold", fontSize:"4rem",paddingTop:"2rem"}}>
-            COMP5521 DeFi Swap
-          </Card.Title>
-          <Tabs
-            defaultActiveKey="swap"
-            className="mb-3"
-            justify
-          >
-            <Tab eventKey="swap" title="Swap">
-              <Form style={{padding:"1rem"}}>
-              From
-              <Row style={{padding:"1rem"}}>
-                  <Col xs={9}>
-                      <Form.Control 
-                          size="lg"
-                          type="number"
-                          placeholder="0"
-                          value={fromAmount}
-                          min="0"
-                          onChange={handleFromAmountChange}
-                      />
-                  </Col>
-                  <Col>
-                      <Form.Select
-                          size="lg"
-                          value={fromToken}
-                          onChange={(e) => {
-                              setFromToken(e.target.value);
-                              if (e.target.value === toToken) {
-                                  setToToken(fromToken);
-                              }
-                              setFromAmount('');
-                              setToAmount('');
-                          }}
-                      >
-                          <option value="ALPHA">ALPHA</option>
-                          <option value="BETA">BETA</option>
-                      </Form.Select>
-                  </Col>
-              </Row>
-              <div style={{padding:'3rem', cursor: 'pointer'}} onClick={handleTokenSwitch}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" fill="currentColor" class="bi bi-arrow-down-up" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd" d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5"/>
-                </svg>
+  return (
+    <div className="container py-5">
+      <header className="text-center mb-4">
+        <Row className="align-items-center">
+          <Col>
+            <img src={Logo} alt="Logo" width="30" height="30" className="me-2" />
+            <span className="h3">DEX Exchange</span>
+          </Col>
+          <Col className="text-end">
+            {isWalletConnected ? (
+              <div>
+                <span className="me-3">Connected: {account?.substring(0, 6)}...{account?.substring(account.length - 4)}</span>
+                <Button variant="outline-secondary" disabled>Connected</Button>
               </div>
-                To
-                <Row style={{padding:"1rem"}}>
-                  <Col xs={9}>
-                    <Form.Control size="lg"
-                                      type="number"
-                                      placeholder="0"
-                                      value={toAmount}
-                                      disabled
+            ) : (
+              <Button variant="primary" onClick={handleConnectWallet}>Connect Wallet</Button>
+            )}
+          </Col>
+        </Row>
+      </header>
+
+      <Row className="mb-4">
+        <Col md={4} className="mb-3">
+          <Card className="h-100">
+            <Card.Body>
+              <Card.Title>Your Balances</Card.Title>
+              <Card.Text>{balance0} ALPHA</Card.Text>
+              <Card.Text>{balance1} BETA</Card.Text>
+              <Card.Text>{balance2} GAMMA</Card.Text>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={8}>
+          <Card className="h-100">
+            <Card.Body>
+              <Card.Title>Pool Information</Card.Title>
+              <Row>
+                <Col md={4}>
+                  <Card.Text>ALPHA: {poolInfo.token0Balance}</Card.Text>
+                </Col>
+                <Col md={4}>
+                  <Card.Text>BETA: {poolInfo.token1Balance}</Card.Text>
+                </Col>
+                <Col md={4}>
+                  <Card.Text>GAMMA: {poolInfo.token2Balance}</Card.Text>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card>
+        <Card.Body>
+          <Tabs defaultActiveKey="swap" className="mb-3">
+            <Tab eventKey="swap" title="Swap">
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>From</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control 
+                      type="number" 
+                      value={fromAmount} 
+                      onChange={handleFromAmountChange} 
+                      placeholder="0.0" 
+                      className="me-2"
                     />
-                  </Col>
-                  <Col>
-                  <Form.Select
-                    size="lg"
-                    value={toToken}
-                    onChange={(e) => {
-                        setToToken(e.target.value);
-                        if (e.target.value === fromToken) {
-                            setFromToken(toToken);
-                        }
-                        setFromAmount('');
-                        setToAmount('');
-                    }}
+                    <Form.Select 
+                      value={fromToken} 
+                      onChange={(e) => setFromToken(e.target.value)}
+                      style={{ width: '120px' }}
                     >
-                      <option value="ALPHA">ALPHA</option>
-                      <option value="BETA">BETA</option>
+                      {supportedTokens.map(token => (
+                        token !== toToken && (
+                          <option key={token} value={token}>{token}</option>
+                        )
+                      ))}
                     </Form.Select>
-                  </Col>
-                </Row>
-              </Form>
-                {!isWalletConnected ? (
-                  <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleConnectWallet} block>
-                    Connect Wallet
-                  </Button>
-                ) : (
-                  <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleSwap} block>
-                    Swap
-                  </Button>
-                )}
-            </Tab>
-            <Tab eventKey="liquidity" title="Provide Liquidity">
-              <Form style={{padding:"1rem"}}>
-                  <div>First Token</div>
-                  <Row style={{padding:"1rem"}}>
-                      <Col xs={9}>
-                          <Form.Control 
-                              size="lg"
-                              type="number"
-                              placeholder="0"
-                              value={token0Amount}
-                              onChange={handleToken0AmountChange}
-                              min="0"
-                          />
-                      </Col>
-                      <Col>
-                          <Form.Select size="lg" disabled>
-                              <option value="ALPHA">ALPHA</option>
-                          </Form.Select>
-                      </Col>
-                  </Row>
-                  <div style={{padding:'1rem', textAlign: 'center'}}>
-                      <span>+</span>
                   </div>
-                  <div>Second Token</div>
-                  <Row style={{padding:"1rem"}}>
-                      <Col xs={9}>
-                          <Form.Control 
-                              size="lg"
-                              type="number"
-                              placeholder="0"
-                              value={token1Amount}
-                              disabled
-                          />
-                      </Col>
-                      <Col>
-                          <Form.Select size="lg" disabled>
-                              <option value="BETA">BETA</option>
-                          </Form.Select>
-                      </Col>
-                  </Row>
-                  {!isWalletConnected ? (
-                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleConnectWallet}>
-                          Connect Wallet
-                      </Button>
-                  ) : (
-                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleAddLiquidity}>
-                          Add Liquidity
-                      </Button>
-                  )}
+                </Form.Group>
+
+                <div className="text-center my-3">
+                  <Button variant="outline-secondary" onClick={handleTokenSwitch}>
+                    ↑↓
+                  </Button>
+                </div>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>To</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control 
+                      type="number" 
+                      value={toAmount} 
+                      readOnly 
+                      placeholder="0.0" 
+                      className="me-2"
+                    />
+                    <Form.Select 
+                      value={toToken} 
+                      onChange={(e) => setToToken(e.target.value)}
+                      style={{ width: '120px' }}
+                    >
+                      {supportedTokens.map(token => (
+                        token !== fromToken && (
+                          <option key={token} value={token}>{token}</option>
+                        )
+                      ))}
+                    </Form.Select>
+                  </div>
+                </Form.Group>
+
+                <Button 
+                  variant="primary" 
+                  onClick={handleSwap} 
+                  disabled={!isWalletConnected || !fromAmount || fromAmount <= 0}
+                >
+                  Swap
+                </Button>
               </Form>
             </Tab>
+
+            <Tab eventKey="liquidity" title="Add Liquidity">
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>ALPHA Amount</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token0Amount} 
+                    onChange={handleToken0AmountChange} 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token1Amount} 
+                    readOnly 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token2Amount} 
+                    readOnly 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Button 
+                  variant="primary" 
+                  onClick={handleAddLiquidity} 
+                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                >
+                  Add Liquidity
+                </Button>
+              </Form>
+            </Tab>
+
             <Tab eventKey="withdraw" title="Withdraw Liquidity">
-                <Form style={{padding:"1rem"}}>
-                    <div>First Token</div>
-                    <Row style={{padding:"1rem"}}>
-                        <Col xs={9}>
-                            <Form.Control 
-                                size="lg"
-                                type="number"
-                                placeholder="0"
-                                value={token0Amount}
-                                onChange={handleToken0AmountChange}
-                                min="0"
-                            />
-                        </Col>
-                        <Col>
-                            <Form.Select size="lg" disabled>
-                                <option value="ALPHA">ALPHA</option>
-                                <option value="BETA">BETA</option>
-                            </Form.Select>
-                        </Col>
-                    </Row>
-                    <div style={{padding:'1rem', textAlign: 'center'}}>
-                      <span>+</span>
-                  </div>
-                  <div>Second Token</div>
-                  <Row style={{padding:"1rem"}}>
-                      <Col xs={9}>
-                          <Form.Control size="lg" type="number" placeholder="0" value={token1Amount} disabled />
-                      </Col>
-                      <Col>
-                          <Form.Select size="lg" disabled>
-                              <option value="BETA">BETA</option>
-                          </Form.Select>
-                      </Col>
-                  </Row>
-                </Form>
-                {!isWalletConnected ? (
-                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleConnectWallet}>
-                          Connect Wallet
-                      </Button>
-                  ) : (
-                      <Button variant="outline-info" size="lg" style={{margin:"1rem"}} onClick={handleWithdrawLiquidity}>
-                          Withdraw Liquidity
-                      </Button>
-                  )}
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>ALPHA Amount to Withdraw</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token0Amount} 
+                    onChange={handleToken0AmountChange} 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token1Amount} 
+                    readOnly 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    value={token2Amount} 
+                    readOnly 
+                    placeholder="0.0" 
+                  />
+                </Form.Group>
+
+                <Button 
+                  variant="primary" 
+                  onClick={handleWithdrawLiquidity} 
+                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                >
+                  Withdraw Liquidity
+                </Button>
+              </Form>
             </Tab>
           </Tabs>
-        </Card.ImgOverlay>
-	    </Card>
-      {isWalletConnected && (
-        <Card
-            border="info"
-            bg="dark"
-            key="dark"
-            text="white"
-            style={{ width: "50rem", marginTop: "3rem"}}
-            className="mb-2"
-        >
-          <Card.Body>
-            <Card.Title> Your Wallet Balances</Card.Title>
-            <Row>
-            <Card.Text as={Col} >
-              {balance0} ALPHA
-            </Card.Text>
-            <Card.Text as={Col}>
-              {balance1} BETA
-            </Card.Text>
-            </Row>
-          </Card.Body>
-        </Card>
-        )}
-      </header>
+        </Card.Body>
+      </Card>
     </div>
   );
 }

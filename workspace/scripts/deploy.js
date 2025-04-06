@@ -19,26 +19,46 @@ async function main() {
   await token1.waitForDeployment();
   console.log("Beta deployed to:", await token1.getAddress());
 
-  // Deploy the Pool
-  const Pool = await hre.ethers.getContractFactory("Pool");
-  const pool = await Pool.deploy(
-    await token0.getAddress(),
-    await token1.getAddress()
-  );
-  await pool.waitForDeployment();
-  console.log("Pool deployed to:", await pool.getAddress());
+  // Deploy Gamma (第三个代币)
+  const token2 = await NewToken.deploy("Gamma", "GAMMA");
+  await token2.waitForDeployment();
+  console.log("Gamma deployed to:", await token2.getAddress());
 
-    // Create utils directory if it doesn't exist
-    const utilsPath = path.join(__dirname, "../frontend/src/utils");
-    if (!fs.existsSync(utilsPath)) {
-      fs.mkdirSync(utilsPath, { recursive: true });
-    }
+  // 部署Factory合约
+  const Factory = await hre.ethers.getContractFactory("Factory");
+  const factory = await Factory.deploy();
+  await factory.waitForDeployment();
+  console.log("Factory deployed to:", await factory.getAddress());
+
+  // 使用Factory创建带有三个代币的Pool
+  const tx = await factory.createPool(
+    await token0.getAddress(),
+    await token1.getAddress(),
+    await token2.getAddress()
+  );
+  await tx.wait();
+  
+  // 获取创建的池子地址
+  const poolAddress = await factory.getPool(
+    await token0.getAddress(), 
+    await token1.getAddress(), 
+    await token2.getAddress()
+  );
+  console.log("Pool deployed to:", poolAddress);
+
+  // Create utils directory if it doesn't exist
+  const utilsPath = path.join(__dirname, "../frontend/src/utils");
+  if (!fs.existsSync(utilsPath)) {
+    fs.mkdirSync(utilsPath, { recursive: true });
+  }
 
   // Write contract addresses to file
   const addresses = {
     token0: await token0.getAddress(),
     token1: await token1.getAddress(),
-    pool: await pool.getAddress(),
+    token2: await token2.getAddress(),
+    pool: poolAddress,
+    factory: await factory.getAddress()
   };
 
   // Write data to the file (creates the file if it doesn't exist)
@@ -46,24 +66,25 @@ async function main() {
   JSON.stringify(addresses, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
   console.log("\nContract addresses have been written to deployed-addresses.json");
 
-    // Export ABIs
-    const artifacts = {
-      NewToken: await hre.artifacts.readArtifact("NewToken"),
-      LPToken: await hre.artifacts.readArtifact("LPToken"),
-      Pool: await hre.artifacts.readArtifact("Pool")
-    };
+  // Export ABIs
+  const artifacts = {
+    NewToken: await hre.artifacts.readArtifact("NewToken"),
+    LPToken: await hre.artifacts.readArtifact("LPToken"),
+    Pool: await hre.artifacts.readArtifact("Pool"),
+    Factory: await hre.artifacts.readArtifact("Factory")
+  };
 
-    const abis = {
-      NewToken: artifacts.NewToken.abi,
-      LPToken: artifacts.LPToken.abi,
-      Pool: artifacts.Pool.abi
-    };
+  const abis = {
+    NewToken: artifacts.NewToken.abi,
+    LPToken: artifacts.LPToken.abi,
+    Pool: artifacts.Pool.abi,
+    Factory: artifacts.Factory.abi
+  };
 
-
-    // Write data to the file (creates the file if it doesn't exist)
-    fs.writeFileSync(path.join(utilsPath, "contract-abis.json"),
-    JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
-    console.log("Contract ABIs have been written to contract-abis.json", { flag: 'w' });
+  // Write data to the file (creates the file if it doesn't exist)
+  fs.writeFileSync(path.join(utilsPath, "contract-abis.json"),
+  JSON.stringify(abis, null, 2), { flag: 'w' }); // 'w' flag ensures the file is created or overwritten
+  console.log("Contract ABIs have been written to contract-abis.json");
 
 }
 

@@ -4,13 +4,13 @@ const { ethers } = require("hardhat");
 
 describe("Pool Contract", function () {
 
-  let Token0, Token1, Pool;
-  let token0, token1, pool;
+  let Token0, Token1, Token2, Pool;
+  let token0, token1, token2, pool;
   let owner, user;
 
   before(async function () {
 
-    // Deploy two tokens
+    // Deploy three tokens
     NewToken = await hre.ethers.getContractFactory("NewToken");
     
     // Deploy Alpha
@@ -21,12 +21,16 @@ describe("Pool Contract", function () {
     token1 = await NewToken.deploy("Beta", "BETA");
     await token1.waitForDeployment();
     
+    // Deploy Gamma
+    token2 = await NewToken.deploy("Gamma", "GAMMA");
+    await token2.waitForDeployment();
 
     // Deploy the Pool
     Pool = await hre.ethers.getContractFactory("Pool");
     pool = await Pool.deploy(
       await token0.getAddress(),
-      await token1.getAddress()
+      await token1.getAddress(),
+      await token2.getAddress()
     );
     await pool.waitForDeployment();
 
@@ -35,12 +39,14 @@ describe("Pool Contract", function () {
     // Send tokens to user for testing
     await token0.transfer(user.address, ethers.parseEther("1000"));
     await token1.transfer(user.address, ethers.parseEther("1000"));
+    await token2.transfer(user.address, ethers.parseEther("1000"));
   });
 
   beforeEach(async function () {
     // Reset approvals for each test
     await token0.connect(user).approve(pool.getAddress(), ethers.parseEther("1000000"));
     await token1.connect(user).approve(pool.getAddress(), ethers.parseEther("1000000"));
+    await token2.connect(user).approve(pool.getAddress(), ethers.parseEther("1000000"));
   });
 
   let snapshotId;
@@ -69,14 +75,23 @@ describe("Pool Contract", function () {
       expect(lpBalance).to.equal(amount0);
 
       // Check reserves updated correctly
-      const [res0, res1] = await pool.getReserves();
+      const [res0, res1, res2] = await pool.getReserves();
       expect(res0).to.equal(amount0);
-      expect(res1).to.equal(amount0 * 2n); // INITIAL_RATIO = 2
+      expect(res1).to.equal(amount0 * 2n); // INITIAL_RATIO_1 = 2
+      expect(res2).to.equal(amount0 * 3n); // INITIAL_RATIO_2 = 3
 
       // Check event emission
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(amount0, token0.getAddress(), amount0, token1.getAddress(), amount0 * 2n);
+        .withArgs(
+          amount0, 
+          token0.getAddress(), 
+          amount0, 
+          token1.getAddress(), 
+          amount0 * 2n,
+          token2.getAddress(),
+          amount0 * 3n
+        );
     });
 
     it("should add liquidity proportionally when pool has reserves", async function () {
@@ -94,14 +109,23 @@ describe("Pool Contract", function () {
       expect(lpBalance).to.equal(amount0 + expectedLP);
 
       // Check reserves
-      const [res0, res1] = await pool.getReserves();
-      expect(res0).to.equal(amount0+addAmount0);
+      const [res0, res1, res2] = await pool.getReserves();
+      expect(res0).to.equal(amount0 + addAmount0);
       expect(res1).to.equal(ethers.parseEther("300")); // 200 + 100
+      expect(res2).to.equal(ethers.parseEther("450")); // 300 + 150
 
       // Check event
       await expect(tx)
         .to.emit(pool, "AddedLiquidity")
-        .withArgs(expectedLP, token0.getAddress(), addAmount0, token1.getAddress(), addAmount0*2n);
+        .withArgs(
+          expectedLP, 
+          token0.getAddress(), 
+          addAmount0, 
+          token1.getAddress(), 
+          addAmount0 * 2n,
+          token2.getAddress(),
+          addAmount0 * 3n
+        );
     });
 
     it("should revert when adding zero liquidity", async function () {
@@ -112,7 +136,7 @@ describe("Pool Contract", function () {
 
   describe("swap", function () {
     beforeEach(async function () {
-      // Add initial liquidity: 100 Token0, 200 Token1
+      // Add initial liquidity: 100 Token0, 200 Token1, 300 Token2
       await pool.connect(user).addLiquidity(ethers.parseEther("100"));
     });
 
@@ -130,14 +154,65 @@ describe("Pool Contract", function () {
       expect(finalBal1).to.equal(ethers.parseEther("900")); // 1000 - 200 (initial) + 100 (swap)
 
       // Check reserves
-      const [res0, res1] = await pool.getReserves();
+      const [res0, res1, res2] = await pool.getReserves();
       expect(res0).to.equal(ethers.parseEther("200")); // 100 + 100
       expect(res1).to.equal(ethers.parseEther("100")); // 200 - 100
+      expect(res2).to.equal(ethers.parseEther("300")); // 不变
 
       // Check event
       await expect(tx)
         .to.emit(pool, "Swapped")
         .withArgs(token0.getAddress(), swapAmount, token1.getAddress(), expectedOutput);
+    });
+
+    it("should swap Alpha for Gamma correctly", async function () {
+      const swapAmount = ethers.parseEther("100");
+      const expectedOutput = ethers.parseEther("150"); // (300 * 100) / (100 + 100) = 150
+
+      // Perform swap
+      const tx = await pool.connect(user).swap(token0.getAddress(), swapAmount, token2.getAddress());
+
+      // Check user's balances
+      const finalBal0 = await token0.balanceOf(user.address);
+      const finalBal2 = await token2.balanceOf(user.address);
+      expect(finalBal0).to.equal(ethers.parseEther("800")); // 1000 - 100 (initial) - 100 (swap)
+      expect(finalBal2).to.equal(ethers.parseEther("850")); // 1000 - 300 (initial) + 150 (swap)
+
+      // Check reserves
+      const [res0, res1, res2] = await pool.getReserves();
+      expect(res0).to.equal(ethers.parseEther("200")); // 100 + 100
+      expect(res1).to.equal(ethers.parseEther("200")); // 不变
+      expect(res2).to.equal(ethers.parseEther("150")); // 300 - 150
+
+      // Check event
+      await expect(tx)
+        .to.emit(pool, "Swapped")
+        .withArgs(token0.getAddress(), swapAmount, token2.getAddress(), expectedOutput);
+    });
+
+    it("should swap Beta for Gamma correctly", async function () {
+      const swapAmount = ethers.parseEther("100");
+      const expectedOutput = ethers.parseEther("100"); // (300 * 100) / (200 + 100) = 100
+
+      // Perform swap
+      const tx = await pool.connect(user).swap(token1.getAddress(), swapAmount, token2.getAddress());
+
+      // Check user's balances
+      const finalBal1 = await token1.balanceOf(user.address);
+      const finalBal2 = await token2.balanceOf(user.address);
+      expect(finalBal1).to.equal(ethers.parseEther("800")); // 1000 - 200 (initial) - 100 (swap)
+      expect(finalBal2).to.equal(ethers.parseEther("800")); // 1000 - 300 (initial) + 100 (swap)
+
+      // Check reserves
+      const [res0, res1, res2] = await pool.getReserves();
+      expect(res0).to.equal(ethers.parseEther("100")); // 不变
+      expect(res1).to.equal(ethers.parseEther("300")); // 200 + 100
+      expect(res2).to.equal(ethers.parseEther("200")); // 300 - 100
+
+      // Check event
+      await expect(tx)
+        .to.emit(pool, "Swapped")
+        .withArgs(token1.getAddress(), swapAmount, token2.getAddress(), expectedOutput);
     });
 
     it("should revert for invalid token pairs", async function () {
@@ -151,18 +226,20 @@ describe("Pool Contract", function () {
     });
   });
 
-  describe("getRequiredAmount1", function () {
-    it("should return initial ratio when pool is empty", async function () {
+  describe("getRequiredAmounts", function () {
+    it("should return initial ratios when pool is empty", async function () {
       const amount0 = ethers.parseEther("100");
-      const requiredAmount1 = await pool.getRequiredAmount1(amount0);
-      expect(requiredAmount1).to.equal(amount0 * 2n);
+      const [amount1, amount2] = await pool.getRequiredAmounts(amount0);
+      expect(amount1).to.equal(amount0 * 2n); // INITIAL_RATIO_1 = 2
+      expect(amount2).to.equal(amount0 * 3n); // INITIAL_RATIO_2 = 3
     });
 
-    it("should return proportional amount when pool has reserves", async function () {
+    it("should return proportional amounts when pool has reserves", async function () {
       await pool.connect(user).addLiquidity(ethers.parseEther("100"));
       const amount0 = ethers.parseEther("50");
-      const requiredAmount1 = await pool.getRequiredAmount1(amount0);
-      expect(requiredAmount1).to.equal(ethers.parseEther("100")); // (50 * 200) / 100
+      const [amount1, amount2] = await pool.getRequiredAmounts(amount0);
+      expect(amount1).to.equal(ethers.parseEther("100")); // (50 * 200) / 100
+      expect(amount2).to.equal(ethers.parseEther("150")); // (50 * 300) / 100
     });
   });
 
@@ -185,6 +262,75 @@ describe("Pool Contract", function () {
       const amountOut = await pool.getAmountOut(token1.getAddress(), amountIn, token0.getAddress());
       const expected = amountIn * 200n / (100n + 50n); // (200 * 50) / 150 ≈ 66.666...
       expect(amountOut).to.equal(expected);
+    });
+
+    it("should calculate correct output for Token0 to Token2", async function () {
+      const amountIn = ethers.parseEther("100");
+      const amountOut = await pool.getAmountOut(token0.getAddress(), amountIn, token2.getAddress());
+      expect(amountOut).to.equal(ethers.parseEther("150")); // (300 * 100) / (100 + 100)
+    });
+
+    it("should calculate correct output for Token2 to Token1", async function () {
+      const amountIn = ethers.parseEther("100");
+      const amountOut = await pool.getAmountOut(token2.getAddress(), amountIn, token1.getAddress());
+      expect(amountOut).to.equal(ethers.parseEther("50")); // (200 * 100) / (300 + 100)
+    });
+  });
+
+  describe("withdrawingliquidity", function () {
+    beforeEach(async function () {
+      // Add initial liquidity: 100 Token0, 200 Token1, 300 Token2
+      await pool.connect(user).addLiquidity(ethers.parseEther("100"));
+    });
+
+    it("should withdraw liquidity correctly", async function () {
+      const withdrawAmount0 = ethers.parseEther("50");
+      
+      // Get LP balance before withdrawal
+      const lpBalanceBefore = await pool.balanceOf(user.address);
+      
+      // Get token balances before withdrawal
+      const balanceBefore0 = await token0.balanceOf(user.address);
+      const balanceBefore1 = await token1.balanceOf(user.address);
+      const balanceBefore2 = await token2.balanceOf(user.address);
+      
+      // Withdraw liquidity
+      const tx = await pool.connect(user).withdrawingliquidity(withdrawAmount0);
+      
+      // Expected LP burned: (50 * 100) / 100 = 50
+      const expectedLPBurned = withdrawAmount0;
+      
+      // Get LP balance after withdrawal
+      const lpBalanceAfter = await pool.balanceOf(user.address);
+      expect(lpBalanceBefore - lpBalanceAfter).to.equal(expectedLPBurned);
+      
+      // Check token balances after withdrawal
+      const balanceAfter0 = await token0.balanceOf(user.address);
+      const balanceAfter1 = await token1.balanceOf(user.address);
+      const balanceAfter2 = await token2.balanceOf(user.address);
+      
+      expect(balanceAfter0 - balanceBefore0).to.equal(withdrawAmount0);
+      expect(balanceAfter1 - balanceBefore1).to.equal(withdrawAmount0 * 2n);
+      expect(balanceAfter2 - balanceBefore2).to.equal(withdrawAmount0 * 3n);
+      
+      // Check reserves after withdrawal
+      const [res0, res1, res2] = await pool.getReserves();
+      expect(res0).to.equal(ethers.parseEther("50")); // 100 - 50
+      expect(res1).to.equal(ethers.parseEther("100")); // 200 - 100
+      expect(res2).to.equal(ethers.parseEther("150")); // 300 - 150
+      
+      // Check event
+      await expect(tx)
+        .to.emit(pool, "WithdrawLiquidity")
+        .withArgs(
+          expectedLPBurned, 
+          token0.getAddress(), 
+          withdrawAmount0, 
+          token1.getAddress(), 
+          withdrawAmount0 * 2n,
+          token2.getAddress(),
+          withdrawAmount0 * 3n
+        );
     });
   });
 });
