@@ -163,26 +163,40 @@ function App() {
   };
 
   const handleAddLiquidity = async () => {
+    if (!contracts || !token0Amount || !token1Amount) {
+        alert("请确保已连接钱包并输入有效的金额");
+        return;
+    }
+
     try {
-        if (!contracts || !account) {
-            throw new Error("Contracts or account not initialized");
+        // 确保输入的是有效的数字
+        const amount0 = parseFloat(token0Amount);
+        const amount1 = parseFloat(token1Amount);
+
+        if (isNaN(amount0) || isNaN(amount1) || amount0 <= 0 || amount1 <= 0) {
+            alert("请输入有效的金额");
+            return;
         }
 
-        await addLiquidity(contracts, token0Amount);
-
-        // update balance
+        // 添加流动性
+        await addLiquidity(contracts, amount0.toString());
+        
+        // 更新余额和池信息
         const balances = await getTokenBalances(contracts, account);
         setBalance0(balances.token0);
         setBalance1(balances.token1);
+        
+        const poolInfo = await getPoolInfo(contracts);
+        setPoolInfo(poolInfo);
 
-        // update pool info
-        const newPoolInfo = await getPoolInfo(contracts);
-        setPoolInfo(newPoolInfo);
-
-        alert("Liquidity added successfully!");
+        // 清空输入
+        setToken0Amount('');
+        setToken1Amount('');
+        
+        alert("添加流动性成功！");
     } catch (error) {
-        console.error("Detailed error:", error);
-        alert(`Failed to add liquidity: ${error.message}`);
+        console.error("添加流动性失败:", error);
+        alert("添加流动性失败: " + error.message);
     }
   };
 

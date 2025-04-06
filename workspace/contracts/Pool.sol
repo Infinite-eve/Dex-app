@@ -49,6 +49,30 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 indexed amountOut
     );
 
+    // 添加滑点保护相关的常量
+    uint256 constant MAX_SLIPPAGE = 50; // 最大允许滑点 0.5%
+    uint256 constant PRECISION = 10000; // 精度因子，用于计算百分比
+
+    // 添加权限控制
+    address public owner;
+    bool public paused;
+
+    // 添加事件
+    event Paused(address account);
+    event Unpaused(address account);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // 添加修饰器
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Ownable: caller is not the owner");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Pool is paused");
+        _;
+    }
+
     //构造函数，用于初始化流动性池
     //token0和token1是流动性池中的两种代币
     //LPToken是用于表示流动性池中代币份额的代币
@@ -134,81 +158,98 @@ contract Pool is LPToken, ReentrancyGuard {
         return (amount0 * balance1) / balance0;
     }
 
-    function addLiquidity(uint256 amount0) public nonReentrant {
-        // input validity check
-        //amount0是添加的token0数量
-        require(amount0 > 0, "Amount must be greater than 0");
+    // 修改滑点计算函数
+    function calculateSlippage(uint256 actual, uint256 expected) internal pure returns (uint256) {
+        if (actual >= expected) {
+            return 0;
+        }
+        // 计算实际滑点百分比
+        uint256 slippage = ((expected - actual) * PRECISION) / expected;
+        return slippage;
+    }
 
-        // calculate and mint liquidity tokens
+    // 修改addLiquidity函数中的滑点检查
+    function addLiquidity(
+        uint256 amount0,
+        uint256 minAmount1,    // 最小接受的token1数量
+        uint256 minLPAmount    // 最小接受的LP Token数量
+    ) public nonReentrant {
+        // 1. 输入验证
+        require(amount0 > 0, "Amount must be greater than 0");
+        require(minAmount1 > 0, "Min amount1 must be greater than 0");
+        require(minLPAmount > 0, "Min LP amount must be greater than 0");
+
+        // 2. 计算实际需要的token1数量
         uint256 amount1 = getRequiredAmount1(amount0);
+        
+        // 3. 滑点检查 - token1
+        uint256 slippage1 = calculateSlippage(amount1, minAmount1);
+        require(slippage1 <= MAX_SLIPPAGE, "Slippage too high for token1");
+        
+        // 4. 计算LP Token数量
         uint256 amountLP;
         //totalsupply()是LPToken的总供应量，ERC20标准接口
         if (totalSupply() > 0) {
-            amountLP =
-                (amount0 * totalSupply()) /
-                tokenBalances[i_token0_address] ;
+            amountLP = (amount0 * totalSupply()) / tokenBalances[i_token0_address];
         } else {
             //首次添加流动性，amountLP等于amount0
             amountLP = amount0;
         }
-        _mint(msg.sender, amountLP);//铸造LP代币
+        
+        // 5. 滑点检查 - LP Token
+        uint256 slippageLP = calculateSlippage(amountLP, minLPAmount);
+        require(slippageLP <= MAX_SLIPPAGE, "Slippage too high for LP tokens");
+        
+        // 6. 铸造LP Token
+        _mint(msg.sender, amountLP);
 
-        // deposit token0
-        require(
-            i_token0.transferFrom(msg.sender, address(this), amount0),
-            "Transfer Alpha failed"
-        );
+        // 7. 转移代币Token0
+        require(i_token0.transferFrom(msg.sender, address(this), amount0), "Transfer Alpha failed");
         tokenBalances[i_token0_address] += amount0;
 
-        // deposit token1
-        require(
-            i_token1.transferFrom(msg.sender, address(this), amount1),
-            "Transfer Beta failed"
-        );
+        require(i_token1.transferFrom(msg.sender, address(this), amount1), "Transfer Beta failed");
         tokenBalances[i_token1_address] += amount1;
 
-        emit AddedLiquidity(
-            amountLP,
-            i_token0_address,
-            amount0,
-            i_token1_address,
-            amount1
-        );
+        emit AddedLiquidity(amountLP, i_token0_address, amount0, i_token1_address, amount1);
     }
 
-    // function to withdraw liquidity
-    //销毁LP代币，并转移代币
-    // todo: infinite zhou: 确认参数数量
-    function withdrawingliquidity(uint256 amount0) public {
-        // input validity check
+    // 修改withdrawingliquidity函数，销毁LP代币，并转移代币，添加滑点保护
+    function withdrawingliquidity(
+        uint256 amount0,
+        uint256 minAmount1,    // 最小接受的token1数量
+        uint256 minLPAmount    // 最小接受的LP Token数量
+    ) public {
+        // 1. 输入验证
         require(amount0 > 0, "Amount must be greater than 0");
+        require(minAmount1 > 0, "Min amount1 must be greater than 0");
+        require(minLPAmount > 0, "Min LP amount must be greater than 0");
 
-        // calculate and mint liquidity tokens
+        // calculate and mint liquidity tokens，计算实际获得的token1数量
         uint256 amount1 = getRequiredAmount1(amount0);
-
-        // calculate and burn liquidity tokens
-        uint256 amountLP = (amount0 * totalSupply()) /
-            tokenBalances[i_token0_address];
+        
+        // 3. 滑点检查 - token1
+        uint256 slippage1 = calculateSlippage(amount1, minAmount1);
+        require(slippage1 <= MAX_SLIPPAGE, "Slippage too high for token1");
+        
+        // 4. 计算需要销毁的LP Token数量
+        uint256 amountLP = (amount0 * totalSupply()) / tokenBalances[i_token0_address];
+        
+        // 5. 滑点检查 - LP Token
+        uint256 slippageLP = calculateSlippage(amountLP, minLPAmount);
+        require(slippageLP <= MAX_SLIPPAGE, "Slippage too high for LP tokens");
+        
+        // 6. 销毁LP Token
         _burn(msg.sender, amountLP);
 
-        // withdraw token0
-        require(
-            i_token0.transfer(msg.sender, amount0),
-            "Transfer Alpha failed"
-        );
+        // 7. 转移代币，withdraw token0
+        require(i_token0.transfer(msg.sender, amount0), "Transfer Alpha failed");
         tokenBalances[i_token0_address] -= amount0;
 
         // withdraw token1
         require(i_token1.transfer(msg.sender, amount1), "Transfer Beta failed");
         tokenBalances[i_token1_address] -= amount1;
 
-        emit WithdrawLiquidity(
-            amountLP,
-            i_token0_address,
-            amount0,
-            i_token1_address,
-            amount1
-        );
+        emit WithdrawLiquidity(amountLP, i_token0_address, amount0, i_token1_address, amount1);
     }
 
     //测试不过，提示补充此函数

@@ -1,0 +1,32 @@
+console.log("Beta balance:", ethers.formatEther(betaBalance));
+console.log("Alpha balance:", ethers.formatEther(alphaBalance));
+const betaBalance = await Beta.balanceOf(await pool.getAddress());
+const alphaBalance = await Alpha.balanceOf(await pool.getAddress());
+console.log("Pool address:", await pool.getAddress());
+console.log("Beta address:", await Beta.getAddress());
+console.log("Alpha address:", await Alpha.getAddress());
+const Alpha = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');const Beta = NewToken.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');const pool = Pool.attach('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9');
+const Pool = await hre.ethers.getContractFactory("Pool");
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+const alphaBalance = await Alpha.balanceOf(pool.address);const betaBalance = await Beta.balanceOf(pool.address);
+const Alpha = NewToken.attach('0x8A791620dd6260079BF849Dc5567aDC3F2FdC318');const Beta = NewToken.attach('0x610178dA211FEF7D417bC0e6FeD39F05609AD788');const pool = Pool.attach('0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e');
+const NewToken = await hre.ethers.getContractFactory("NewToken");const Pool = await hre.ethers.getContractFactory("Pool");
+const Alpha = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');const Beta = NewToken.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');const pool = Pool.attach('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9');
+const alphaBalance = await Alpha.balanceOf(pool.address);
+const pool = Pool.attach('0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e');
+const Beta = NewToken.attach('0x610178dA211FEF7D417bC0e6FeD39F05609AD788');
+const Alpha = NewToken.attach('0x8A791620dd6260079BF849Dc5567aDC3F2FdC318');
+const NewToken = await hre.ethers.getContractFactory("NewToken");const Pool = await hre.ethers.getContractFactory("Pool");
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+console.log("Beta balance:", ethers.formatEther(betaBalance));
+const betaBalance = await Beta.balanceOf('0xB8f184757Be5482E675B35541581e696A094d85c');
+console.log("Alpha balance:", ethers.formatEther(alphaBalance));
+const alphaBalance = await Alpha.balanceOf('0xB8f184757Be5482E675B35541581e696A094d85c');
+const Alpha = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');const Beta = NewToken.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
+const NewToken = await hre.ethers.getContractFactory("NewToken");
+const NewToken = await hre.ethers.getContractFactory("NewToken");const Alpha = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512');const Beta = NewToken.attach('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0');
+await Beta.transfer('0xB8f184757Be5482E675B35541581e696A094d85c', 100000000000000000000000n)
+const Beta = NewToken.attach('0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512')
+await Alpha.transfer('0xB8f184757Be5482E675B35541581e696A094d85c', 100000000000000000000000n)
+const Alpha = NewToken.attach('0x5FbDB2315678afecb367f032d93F642f64180aa3')
+const NewToken = await hre.ethers.getContractFactory("NewToken");

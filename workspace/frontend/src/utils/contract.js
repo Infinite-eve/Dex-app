@@ -122,24 +122,26 @@ export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
 };
 
 export const addLiquidity = async (contracts, amount0) => {
-  try {
-      const amount0Wei = ethers.parseEther(amount0.toString());
-      
-      // Get required amount of token1
-      const amount1Wei = await contracts.pool.contract.getRequiredAmount1(amount0Wei);
-      
-      // Approve both tokens
-      await contracts.token0.contract.approve(contracts.pool.address, amount0Wei);
-      await contracts.token1.contract.approve(contracts.pool.address, amount1Wei);
-      
-      // Add liquidity 
-      const tx = await contracts.pool.contract.addLiquidity(amount0Wei);
-      await tx.wait();
-      return tx;
-  } catch (error) {
-      console.error("Error in addLiquidity:", error);
-      throw error;
-  }
+    try {
+        if (!amount0 || isNaN(amount0) || parseFloat(amount0) <= 0) {
+            throw new Error("无效的金额");
+        }
+
+        const amount0Wei = ethers.parseEther(amount0.toString());
+        
+        // 首先授权代币
+        await contracts.token0.contract.approve(contracts.pool.address, MaxUint256);
+        await contracts.token1.contract.approve(contracts.pool.address, MaxUint256);
+        
+        // 添加流动性
+        const tx = await contracts.pool.contract.addLiquidity(amount0Wei);
+        await tx.wait();
+        
+        return tx;
+    } catch (error) {
+        console.error("Error in addLiquidity:", error);
+        throw error;
+    }
 };
 
 // 取流动性
