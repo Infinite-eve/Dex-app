@@ -13,6 +13,7 @@ export const getContracts = async (signer) => {
       const token0 = new ethers.Contract(addresses.token0, abis.NewToken, signer);
       const token1 = new ethers.Contract(addresses.token1, abis.NewToken, signer);
       const token2 = new ethers.Contract(addresses.token2, abis.NewToken, signer);
+      const addresses_token = [addresses.token0, addresses.token1, addresses.token2];
       const pool = new ethers.Contract(addresses.pool, abis.Pool, signer);
 
       const contracts = {
@@ -97,14 +98,14 @@ export const getAmountOut = async (contracts, tokenIn, amountIn, tokenOut) => {
     }
   };
 
+// todo: infinite-zhou 待废弃
 export const getRequiredAmounts = async (contracts, amount0) => {
   try {
       const amount0Wei = ethers.parseEther(amount0.toString());
-      const [amount1Wei, amount2Wei] = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
-      return {
-          token1Amount: ethers.formatEther(amount1Wei),
-          token2Amount: ethers.formatEther(amount2Wei)
-      };
+      console.log(contracts.pool.contract.tokenBalances)
+      const res = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
+      
+      return res;
   } catch (error) {
       console.error("Error in getRequiredAmounts:", error);
       throw error;
@@ -114,6 +115,7 @@ export const getRequiredAmounts = async (contracts, amount0) => {
 
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
+
       const amountInWei = ethers.parseEther(amountIn.toString());
       
       // Approve tokenIn
@@ -134,20 +136,24 @@ export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   }
 };
 
-export const addLiquidity = async (contracts, amount0) => {
+export const addLiquidity = async (contracts, addresses_token, amounts_list) => {
   try {
-      const amount0Wei = ethers.parseEther(amount0.toString());
+    //   const amount0Wei = ethers.parseEther(amount0.toString());
       
       // Get required amounts of token1 and token2
-      const [amount1Wei, amount2Wei] = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
+      // get the key: address and value: amount
+    //   const [amount1Wei, amount2Wei] = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
       
       // Approve all tokens
-      await contracts.token0.contract.approve(contracts.pool.address, amount0Wei);
-      await contracts.token1.contract.approve(contracts.pool.address, amount1Wei);
-      await contracts.token2.contract.approve(contracts.pool.address, amount2Wei);
+    //   console.log(amounts_list);
+
+
+      await contracts.token0.contract.approve(contracts.pool.address, amounts_list[0] );
+      await contracts.token1.contract.approve(contracts.pool.address, amounts_list[1] );
+      await contracts.token2.contract.approve(contracts.pool.address, amounts_list[2] );
       
-      // Add liquidity 
-      const tx = await contracts.pool.contract.addLiquidity(amount0Wei);
+    
+      const tx = await contracts.pool.contract.addLiquidity(addresses_token, amounts_list);
       await tx.wait();
       return tx;
   } catch (error) {
