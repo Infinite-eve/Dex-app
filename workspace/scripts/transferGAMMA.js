@@ -1,4 +1,7 @@
-const { ethers } = require("hardhat");
+const { isAddress } = require("ethers");
+
+
+
 const addresses = require("../frontend/src/utils/deployed-addresses.json"); 
 
 async function main() {
@@ -9,13 +12,19 @@ async function main() {
   const [senderWallet] = await ethers.getSigners();
   console.log(`Sender address: ${senderWallet.address}`);
 
+  
   // Replace with the address of the recipient account
   //替换自己的地址
-  const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
-
+  const recipientAddress = "0x51C87a004CEa3f03a77A5398Bb0B7EEb15DAB92f"; // My address (from MetaMask)
+  if (isAddress(recipientAddress)) {
+      console.log("Valid address");
+  } else {
+      console.log("Invalid address");
+  }
   const NewToken = await hre.ethers.getContractFactory("NewToken");
   const GAMMA = NewToken.attach(addresses.token2);
-
+  
+  console.log("gammaAddress:", addresses.token2); 
   const balanceGAMMAFrom = await GAMMA.balanceOf(`${senderWallet.address}`);
   console.log("Address:", senderWallet.address); 
   console.log("Balance GAMMA (from):", ethers.formatEther(balanceGAMMAFrom), "GAMMA"); 

@@ -24,6 +24,7 @@ function App() {
   const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0', token2Balance: '0' });
 
   /* swap related */
+  // todo: @infinite-zhou 确定一下useState是不是
   const [fromToken, setFromToken] = useState('ALPHA');
   const [toToken, setToToken] = useState('BETA');
   const [fromAmount, setFromAmount] = useState('');
@@ -102,10 +103,13 @@ function App() {
       if (!amount0 || !contracts || isNaN(amount0) || amount0 <= 0) {
           return ['0', '0'];
       }
-
       try {
+          console.log(amount0);
           const result = await getRequiredAmounts(contracts, amount0);
-          return [result.token1Amount, result.token2Amount];
+          const subArray = result.slice(1); 
+          console.log(subArray.map(item => ethers.formatEther(item)));
+          
+          return subArray.map(item => ethers.formatEther(item));
       } catch (error) {
           console.error("Error calculating token amounts:", error);
           return ['0', '0'];
@@ -177,7 +181,21 @@ function App() {
             throw new Error("Contracts or account not initialized");
         }
 
-        await addLiquidity(contracts, token0Amount);
+        // todo: @infinite-zhou 先写死,可能之后需要改
+        
+        const amounts_list = [
+          ethers.parseEther(token0Amount.toString()),
+          ethers.parseEther(token1Amount.toString()),
+          ethers.parseEther(token2Amount.toString())
+        ];
+
+        const addresses_token = [
+          contracts.token0.address,
+          contracts.token1.address,
+          contracts.token2.address,
+        ];
+        
+        await addLiquidity(contracts, addresses_token, amounts_list);
 
         // update balance
         const balances = await getTokenBalances(contracts, account);
