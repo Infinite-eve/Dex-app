@@ -115,8 +115,11 @@ export const getRequiredAmounts = async (contracts, amount0) => {
 
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
-
       const amountInWei = ethers.parseEther(amountIn.toString());
+      
+      // Map token names to contract objects
+      const tokenInAddress = contracts[tokenIn].address;
+      const tokenOutAddress = contracts[tokenOut].address;
       
       // Approve tokenIn
       const tokenInContract = contracts[tokenIn].contract;
@@ -124,9 +127,9 @@ export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
       
       // Execute swap
       const tx = await contracts.pool.contract.swap(
-          contracts[tokenIn].address,
+          tokenInAddress,
           amountInWei,
-          contracts[tokenOut].address
+          tokenOutAddress
       );
       await tx.wait();
       return tx;
