@@ -11,12 +11,12 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "5.0.0",
-    "hardhat": "2.22.19"
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.19"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "5.2.0"
-  }
+    "@openzeppelin/contracts": "^5.2.0"
+  },
+  "description": ""
 }

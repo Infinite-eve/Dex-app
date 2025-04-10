@@ -1,0 +1,22 @@
+const feeCollectorBalance = await token0.balanceOf(feeCollector);
+// 验证 feeCollector 的余额
+await pool.swap(token0.address, ethers.utils.parseEther("10"), token1.address);
+await token0.approve(pool.address, ethers.utils.parseEther("10"));
+const token1 = await ethers.getContractAt("ERC20Mock", "Token1地址");
+const token0 = await ethers.getContractAt("ERC20Mock", "Token0地址");
+// 模拟调用 swap 函数
+console.log("Fee Collector:", feeCollector);
+const feeCollector = await pool.feeCollector();
+// 查看费用收集地址
+console.log("Trading Fee:", tradingFee.toString()); // 应输出 30
+const tradingFee = await pool.tradingFee();
+// 查看交易费率
+const pool = await ethers.getContractAt("Pool", "部署的Pool合约地址");
+npx hardhat run scripts/deploy.js --network localhost
+console.log("Pool deployed to:", pool.address);
+const pool = await ethers.getContractAt("Pool", "部署的Pool合约地址");
+await Beta.transfer('0x178C4a24C06654425C0f83425FB57590e0327ee0', 100000000000000000000000n)
+const Beta = NewToken.attach('0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6')
+await Alpha.transfer('0x178C4a24C06654425C0f83425FB57590e0327ee0', 100000000000000000000000n)
+const Alpha = NewToken.attach('0xa513E6E4b8f2a923D98304ec87F64353C4D5C853')
+const NewToken = await hre.ethers.getContractFactory("NewToken");
