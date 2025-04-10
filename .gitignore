@@ -1,1 +1,7 @@
+# 忽略 Node.js 依赖
 workspace/node_modules/*
+
+# 忽略 Hardhat 编译产物
+workspace/artifacts/
+workspace/cache/
+
