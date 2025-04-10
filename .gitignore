@@ -2,6 +2,6 @@
 workspace/node_modules/*
 
 # 忽略 Hardhat 编译产物
-workspace/artifacts/
+workspace/artifacts/*
 workspace/cache/
 

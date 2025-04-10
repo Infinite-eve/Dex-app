@@ -29,8 +29,8 @@ async function main() {
   console.log("Gamma deployed to:", await token2.getAddress());
 
   // 部署Factory合约
-  const Factory = await hre.ethers.getContractFactory("Factory");
-  const factory = await Factory.deploy();
+  const Factory = await hre.ethers.getContractFactory("Factory");//类/工厂大写通过 getContractFactory 获取的合约工厂对象（ContractFactory 类型），用于部署合约
+  const factory = await Factory.deploy();//部署后的合约实例
   await factory.waitForDeployment();
   console.log("Factory deployed to:", await factory.getAddress());
 
@@ -83,7 +83,7 @@ async function main() {
     NewToken: artifacts.NewToken.abi,
     LPToken: artifacts.LPToken.abi,
     Pool: artifacts.Pool.abi,
-    Factory: artifacts.Factory.abi
+    Factory: artifacts.Factory.abi,
   };
 
   // Write data to the file (creates the file if it doesn't exist)
