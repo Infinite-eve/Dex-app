@@ -10,6 +10,12 @@ import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
 import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
 
+// 添加格式化数字的辅助函数
+const formatNumber = (number) => {
+  if (!number || isNaN(number)) return '0.00';
+  return Number(number).toFixed(2);
+};
+
 function App() {
   /* wallet related */
   const [isWalletConnected, setIsWalletConnected] = useState(false); // Track wallet connection
@@ -309,9 +315,9 @@ function App() {
           <Card className="h-100">
             <Card.Body>
               <Card.Title className="Card-title">Balances</Card.Title>
-              <Card.Text>ALPHA：{balance0} </Card.Text>
-              <Card.Text>BETA： {balance1} </Card.Text>
-              <Card.Text>GAMMA： {balance2} </Card.Text>
+              <Card.Text>ALPHA：{formatNumber(balance0)} </Card.Text>
+              <Card.Text>BETA： {formatNumber(balance1)} </Card.Text>
+              <Card.Text>GAMMA： {formatNumber(balance2)} </Card.Text>
             </Card.Body>
           </Card>
         </Col>
@@ -356,9 +362,9 @@ function App() {
                     <tr >
                       <td>\</td>
                       <td>\</td>
-                      <td>{poolInfo.token0Balance}</td>
-                      <td>{poolInfo.token1Balance}</td>
-                      <td>{poolInfo.token2Balance}</td>
+                      <td>{formatNumber(poolInfo.token0Balance)}</td>
+                      <td>{formatNumber(poolInfo.token1Balance)}</td>
+                      <td>{formatNumber(poolInfo.token2Balance)}</td>
                       <td>\</td>
                       <td>\</td>
                       <td>\</td>
@@ -383,7 +389,8 @@ function App() {
                       type="number"
                       value={fromAmount}
                       onChange={handleFromAmountChange}
-                      placeholder="0.0"
+                      placeholder="0.00"
+                      step="0.01"
                       className="me-2"
                     />
                     <Form.Select
@@ -411,9 +418,9 @@ function App() {
                   <div className="d-flex">
                     <Form.Control
                       type="number"
-                      value={toAmount}
+                      value={formatNumber(toAmount)}
                       readOnly
-                      placeholder="0.0"
+                      placeholder="0.00"
                       className="me-2"
                     />
                     <Form.Select
@@ -448,7 +455,8 @@ function App() {
                     type="number"
                     value={token0Amount}
                     onChange={handleToken0AmountChange}
-                    placeholder="0.0"
+                    placeholder="0.00"
+                    step="0.01"
                   />
                 </Form.Group>
 
@@ -456,9 +464,9 @@ function App() {
                   <Form.Label>BETA Amount (calculated automatically)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={token1Amount}
+                    value={formatNumber(token1Amount)}
                     readOnly
-                    placeholder="0.0"
+                    placeholder="0.00"
                   />
                 </Form.Group>
 
@@ -466,9 +474,9 @@ function App() {
                   <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={token2Amount}
+                    value={formatNumber(token2Amount)}
                     readOnly
-                    placeholder="0.0"
+                    placeholder="0.00"
                   />
                 </Form.Group>
 
@@ -490,7 +498,8 @@ function App() {
                     type="number"
                     value={token0Amount}
                     onChange={handleToken0AmountChange}
-                    placeholder="0.0"
+                    placeholder="0.00"
+                    step="0.01"
                   />
                 </Form.Group>
 
@@ -498,9 +507,9 @@ function App() {
                   <Form.Label>BETA Amount (calculated automatically)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={token1Amount}
+                    value={formatNumber(token1Amount)}
                     readOnly
-                    placeholder="0.0"
+                    placeholder="0.00"
                   />
                 </Form.Group>
 
@@ -508,9 +517,9 @@ function App() {
                   <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
                   <Form.Control
                     type="number"
-                    value={token2Amount}
+                    value={formatNumber(token2Amount)}
                     readOnly
-                    placeholder="0.0"
+                    placeholder="0.00"
                   />
                 </Form.Group>
 
