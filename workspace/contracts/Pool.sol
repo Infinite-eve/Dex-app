@@ -83,12 +83,19 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 amountIn,
         address tokenOut
     ) public view returns (uint256) {
-        uint256 balanceOut = tokenBalances[tokenOut];//输出代币当前的余额   
-        uint256 balanceIn = tokenBalances[tokenIn];//输入兑换的币当前的余额
+        require(tokenIn != tokenOut, "Same tokens");
+        require(amountIn > 0, "Zero input amount");
+        
+        uint256 balanceOut = tokenBalances[tokenOut];
+        uint256 balanceIn = tokenBalances[tokenIn];
+        
+        require(balanceIn > 0 && balanceOut > 0, "Insufficient liquidity");
         
         // 对于三种代币的流动性池，我们仍然使用恒定乘积公式，但只针对交易涉及的两种代币
         // 保持交易对的交易逻辑不变
         uint256 amountOut = (balanceOut * amountIn) / (balanceIn + amountIn);
+        require(amountOut > 0, "Zero output amount");
+        require(amountOut <= balanceOut, "Insufficient output liquidity");
 
         return amountOut;
     }
@@ -100,28 +107,30 @@ contract Pool is LPToken, ReentrancyGuard {
     ) public nonReentrant {
         // input validity checks
         require(tokenIn != tokenOut, "Same tokens");
-        require(tokenIn != address(0) && tokenOut != address(0), "Zero address not allowed");
         require(i_tokens_map[tokenIn] < i_tokens_addresses.length, "tokenIn not in i_tokens_map");
         require(i_tokens_map[tokenOut] < i_tokens_addresses.length, "tokenOut not in i_tokens_map");
         require(amountIn > 0, "Zero amount");
-        require(tokenBalances[tokenIn] > 0, "Insufficient liquidity for tokenIn");
-        require(tokenBalances[tokenOut] > 0, "Insufficient liquidity for tokenOut");
 
+        // Check balances
+        uint256 balanceIn = tokenBalances[tokenIn];
+        uint256 balanceOut = tokenBalances[tokenOut];
+        require(balanceOut > 0, "Insufficient output token liquidity");
+        
         //getAmountOut函数计算代币兑换的输出数量
         uint256 amountOut = getAmountOut(tokenIn, amountIn, tokenOut);
-        require(amountOut > 0, "Invalid output amount");
-        require(amountOut <= tokenBalances[tokenOut], "Insufficient output token balance");
+        require(amountOut > 0, "Zero output amount");
+        require(amountOut <= balanceOut, "Insufficient output token balance");
 
         // swapping tokens
         //msg.sender是当前调用合约的账户地址
         //require函数用于检查代币转移是否成功
         require(
             IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
-            "Transfer of input token failed"
+            "Transfer tokenIn failed"
         );
         require(
             IERC20(tokenOut).transfer(msg.sender, amountOut),
-            "Transfer of output token failed"
+            "Transfer tokenOut failed"
         );
 
         // update pool balances
