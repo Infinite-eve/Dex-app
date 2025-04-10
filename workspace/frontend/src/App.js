@@ -243,7 +243,19 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      await withdrawingliquidity(contracts, token0Amount);
+      const amounts_list = [
+        ethers.parseEther(token0Amount.toString()),
+        ethers.parseEther(token1Amount.toString()),
+        ethers.parseEther(token2Amount.toString())
+      ];
+
+      const addresses_token = [
+        contracts.token0.address,
+        contracts.token1.address,
+        contracts.token2.address,
+      ];
+
+      await withdrawingliquidity(contracts, addresses_token, amounts_list);
 
       // update balance
       const balances = await getTokenBalances(contracts, account);

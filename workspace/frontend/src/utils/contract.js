@@ -163,18 +163,15 @@ export const addLiquidity = async (contracts, addresses_token, amounts_list) => 
 };
 
 // 取流动性
-export const withdrawingliquidity = async (contracts, amount0) => {
+export const withdrawingliquidity = async (contracts, addresses_token, amounts_list) => {
   try {
-    const amount0Wei = ethers.parseEther(amount0.toString());
-    const [amount1Wei, amount2Wei] = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
-
-    // Approve all tokens (可能不需要，但为了安全起见仍然保留)
-    await contracts.token0.contract.approve(contracts.pool.address, amount0Wei);
-    await contracts.token1.contract.approve(contracts.pool.address, amount1Wei);
-    await contracts.token2.contract.approve(contracts.pool.address, amount2Wei);
+    
+    await contracts.token0.contract.approve(contracts.pool.address, amounts_list[0] );
+    await contracts.token1.contract.approve(contracts.pool.address, amounts_list[1] );
+    await contracts.token2.contract.approve(contracts.pool.address, amounts_list[2] );
     
     // Withdraw liquidity
-    const tx = await contracts.pool.contract.withdrawingliquidity(amount0Wei);
+    const tx = await contracts.pool.contract.withdrawingliquidity(addresses_token, amounts_list);
     await tx.wait();
     return tx;
   } catch (error) {
