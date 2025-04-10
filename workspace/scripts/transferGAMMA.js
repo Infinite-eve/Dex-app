@@ -1,7 +1,4 @@
-const { isAddress } = require("ethers");
-
-
-
+const { ethers } = require("hardhat");
 const addresses = require("../frontend/src/utils/deployed-addresses.json"); 
 
 async function main() {
@@ -12,38 +9,29 @@ async function main() {
   const [senderWallet] = await ethers.getSigners();
   console.log(`Sender address: ${senderWallet.address}`);
 
-  
   // Replace with the address of the recipient account
-  //替换自己的地址
-  const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
-  if (isAddress(recipientAddress)) {
-      console.log("Valid address");
-  } else {
-      console.log("Invalid address");
-  }
-  const NewToken = await hre.ethers.getContractFactory("NewToken");
-  const GAMMA = NewToken.attach(addresses.token2);
-  
-  console.log("gammaAddress:", addresses.token2); 
-  const balanceGAMMAFrom = await GAMMA.balanceOf(`${senderWallet.address}`);
-  console.log("Address:", senderWallet.address); 
-  console.log("Balance GAMMA (from):", ethers.formatEther(balanceGAMMAFrom), "GAMMA"); 
+  const recipientAddress = "0x4563f36Bb992cD358ABC81cB6991F2fE798Ec6CE"; // My address (from MetaMask)
 
-  const balanceGAMMAToOld = await GAMMA.balanceOf(`${recipientAddress}`);
-  // 输出账号
-  console.log("Address:", recipientAddress);
-  console.log("Balance GAMMA:", ethers.formatEther(balanceGAMMAToOld), "GAMMA"); 
+  const NewToken = await ethers.getContractFactory("NewToken");
+  const Gamma = NewToken.attach(addresses.tokens.gamma);
+
+  const balanceGammaFrom = await Gamma.balanceOf(`${senderWallet.address}`);
+  console.log("Address:", senderWallet.address);
+  console.log("Balance Gamma (from):", ethers.formatEther(balanceGammaFrom), "GAMMA"); 
+
+  const balanceGammaToOld = await Gamma.balanceOf(`${recipientAddress}`);
+  console.log("Address:", recipientAddress); 
+  console.log("Balance Gamma:", ethers.formatEther(balanceGammaToOld), "GAMMA");
 
   const amount = ethers.parseEther("1000");
-  await GAMMA.transfer(recipientAddress, amount)
+  await Gamma.transfer(recipientAddress, amount);
   console.log("Transfer done:", "GAMMA");
 
-  const balanceGAMMAFromNow = await GAMMA.balanceOf(`${senderWallet.address}`);
-  console.log("Balance GAMMA (from):", ethers.formatEther(balanceGAMMAFromNow), "GAMMA");
+  const balanceGammaFromNow = await Gamma.balanceOf(`${senderWallet.address}`);
+  console.log("Balance Gamma (from):", ethers.formatEther(balanceGammaFromNow), "GAMMA"); 
   
-  // 输入当前账号GAMMA币的余额
-  const balanceGAMMA = await GAMMA.balanceOf(`${recipientAddress}`);
-  console.log("Balance GAMMA:", ethers.formatEther(balanceGAMMA), "GAMMA"); 
+  const balanceGamma = await Gamma.balanceOf(`${recipientAddress}`);
+  console.log("Balance Gamma:", ethers.formatEther(balanceGamma), "GAMMA"); 
 }
 
 main()
