@@ -100,23 +100,28 @@ contract Pool is LPToken, ReentrancyGuard {
     ) public nonReentrant {
         // input validity checks
         require(tokenIn != tokenOut, "Same tokens");
-        require(i_tokens_map[tokenIn] != 0, "tokenIn not in i_tokens_map");
-        require(i_tokens_map[tokenOut] != 0, "tokenOut not in i_tokens_map");
+        require(tokenIn != address(0) && tokenOut != address(0), "Zero address not allowed");
+        require(i_tokens_map[tokenIn] < i_tokens_addresses.length, "tokenIn not in i_tokens_map");
+        require(i_tokens_map[tokenOut] < i_tokens_addresses.length, "tokenOut not in i_tokens_map");
         require(amountIn > 0, "Zero amount");
+        require(tokenBalances[tokenIn] > 0, "Insufficient liquidity for tokenIn");
+        require(tokenBalances[tokenOut] > 0, "Insufficient liquidity for tokenOut");
 
         //getAmountOut函数计算代币兑换的输出数量
         uint256 amountOut = getAmountOut(tokenIn, amountIn, tokenOut);
+        require(amountOut > 0, "Invalid output amount");
+        require(amountOut <= tokenBalances[tokenOut], "Insufficient output token balance");
 
         // swapping tokens
         //msg.sender是当前调用合约的账户地址
         //require函数用于检查代币转移是否成功
         require(
             IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
-            "Swap Failed"
+            "Transfer of input token failed"
         );
         require(
             IERC20(tokenOut).transfer(msg.sender, amountOut),
-            "Swap Failed"
+            "Transfer of output token failed"
         );
 
         // update pool balances

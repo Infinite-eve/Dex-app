@@ -115,24 +115,39 @@ export const getRequiredAmounts = async (contracts, amount0) => {
 
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
-
       const amountInWei = ethers.parseEther(amountIn.toString());
+      
+      // Map token names to contract objects
+      const tokenInAddress = contracts[tokenIn].address;
+      const tokenOutAddress = contracts[tokenOut].address;
+      
+      // Check pool balances first
+      const poolInfo = await getPoolInfo(contracts);
+      const tokenInBalance = parseFloat(poolInfo[`${tokenIn}Balance`]);
+      const tokenOutBalance = parseFloat(poolInfo[`${tokenOut}Balance`]);
+      
+      if (tokenInBalance <= 0 || tokenOutBalance <= 0) {
+          throw new Error("Insufficient liquidity in pool");
+      }
       
       // Approve tokenIn
       const tokenInContract = contracts[tokenIn].contract;
-      await tokenInContract.approve(contracts.pool.address, amountInWei);
+      const approveTx = await tokenInContract.approve(contracts.pool.address, amountInWei);
+      await approveTx.wait();
       
       // Execute swap
       const tx = await contracts.pool.contract.swap(
-          contracts[tokenIn].address,
+          tokenInAddress,
           amountInWei,
-          contracts[tokenOut].address
+          tokenOutAddress
       );
       await tx.wait();
       return tx;
   } catch (error) {
       console.error("Error in swapTokens:", error);
-      throw error;
+      // 提取更有用的错误信息
+      const errorMessage = error.reason || error.message || "Unknown error occurred";
+      throw new Error(`Swap failed: ${errorMessage}`);
   }
 };
 
