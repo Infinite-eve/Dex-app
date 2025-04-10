@@ -4,8 +4,12 @@ const path = require("path");
 
 async function main() {
 
+  await hre.network.provider.send("hardhat_reset");
+  // 默认取第一个
   const [deployer] = await hre.ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
+
+  const nonce = await deployer.getNonce();
 
   const NewToken = await hre.ethers.getContractFactory("NewToken");
 
@@ -31,18 +35,19 @@ async function main() {
   console.log("Factory deployed to:", await factory.getAddress());
 
   // 使用Factory创建带有三个代币的Pool
-  const tx = await factory.createPool(
+  const addresses_token = [
     await token0.getAddress(),
     await token1.getAddress(),
     await token2.getAddress()
+  ]
+  const tx = await factory.createPool(
+    addresses_token
   );
   await tx.wait();
   
   // 获取创建的池子地址
   const poolAddress = await factory.getPool(
-    await token0.getAddress(), 
-    await token1.getAddress(), 
-    await token2.getAddress()
+    addresses_token
   );
   console.log("Pool deployed to:", poolAddress);
 

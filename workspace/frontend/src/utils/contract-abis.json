@@ -655,19 +655,9 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "token0",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "token1",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "token2",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "tokens_add",
+          "type": "address[]"
         }
       ],
       "stateMutability": "nonpayable",
@@ -768,46 +758,16 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "lpToken",
-          "type": "uint256"
+          "indexed": false,
+          "internalType": "address[]",
+          "name": "token_add",
+          "type": "address[]"
         },
         {
           "indexed": false,
-          "internalType": "address",
-          "name": "token0",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "amount0",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "token1",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "amount1",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "token2",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount2",
-          "type": "uint256"
+          "internalType": "uint256[]",
+          "name": "amounts",
+          "type": "uint256[]"
         }
       ],
       "name": "AddedLiquidity",
@@ -898,46 +858,16 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "lpToken",
-          "type": "uint256"
+          "indexed": false,
+          "internalType": "address[]",
+          "name": "token_add",
+          "type": "address[]"
         },
         {
           "indexed": false,
-          "internalType": "address",
-          "name": "token0",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "amount0",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "token1",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "amount1",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "token2",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount2",
-          "type": "uint256"
+          "internalType": "uint256[]",
+          "name": "amounts",
+          "type": "uint256[]"
         }
       ],
       "name": "WithdrawLiquidity",
@@ -947,8 +877,32 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "amount0",
+          "name": "",
           "type": "uint256"
+        }
+      ],
+      "name": "INITIAL_RATIO",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "token_add",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "amounts",
+          "type": "uint256[]"
         }
       ],
       "name": "addLiquidity",
@@ -1089,38 +1043,62 @@
       "name": "getRequiredAmounts",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "uint256[]",
           "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
+          "type": "uint256[]"
         }
       ],
       "stateMutability": "view",
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "getReserves",
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "i_tokens",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "contract IERC20",
           "name": "",
-          "type": "uint256"
-        },
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
         {
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
-        },
+        }
+      ],
+      "name": "i_tokens_addresses",
+      "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "address",
           "name": "",
-          "type": "uint256"
-        },
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "i_tokens_map",
+      "outputs": [
         {
           "internalType": "uint256",
           "name": "",
@@ -1174,6 +1152,25 @@
           "internalType": "string",
           "name": "",
           "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "tokenBalances",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -1248,9 +1245,14 @@
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "amount0",
-          "type": "uint256"
+          "internalType": "address[]",
+          "name": "token_add",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "amounts",
+          "type": "uint256[]"
         }
       ],
       "name": "withdrawingliquidity",
@@ -1264,28 +1266,10 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
-          "internalType": "address",
-          "name": "token0",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "token1",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "token2",
-          "type": "address"
-        },
-        {
           "indexed": false,
-          "internalType": "address",
-          "name": "pool",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
         }
       ],
       "name": "PoolCreated",
@@ -1294,19 +1278,9 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "tokenA",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "tokenB",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "tokenC",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
         }
       ],
       "name": "createPool",
@@ -1323,19 +1297,9 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "tokenA",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "tokenB",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "tokenC",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
         }
       ],
       "name": "getPool",
@@ -1350,13 +1314,19 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "getSupportedTokensLength",
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
+        }
+      ],
+      "name": "getPoolKey",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "bytes32",
           "name": "",
-          "type": "uint256"
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -1365,38 +1335,9 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "isTokenSupported",
-      "outputs": [
-        {
-          "internalType": "bool",
+          "internalType": "bytes32",
           "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
+          "type": "bytes32"
         }
       ],
       "name": "pools",
