@@ -6,7 +6,7 @@ import Logo from "./assets/icons/currency-exchange.svg"
 import { Card, Tabs, Tab, Row, Col, Form, Button,Container, Badge,Table} from 'react-bootstrap';
 
 /* Interaction with Backend */
-import { React, useState } from 'react';
+import { React, useState, useEffect } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
 import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
 
@@ -16,31 +16,29 @@ function App() {
   const [account, setAccount] = useState(null);
   const [contracts, setContracts] = useState(null);
   const [provider, setProvider] = useState(null);
+  const [selectedPool, setSelectedPool] = useState('ALPHA-BETA-GAMMA');
 
   /* balance related */
-  const [balance0, setBalance0] = useState(0);
-  const [balance1, setBalance1] = useState(0);
-  const [balance2, setBalance2] = useState(0);
-  const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0', token2Balance: '0' });
+  const [balances, setBalances] = useState({});
+  const [poolInfo, setPoolInfo] = useState({});
 
   /* swap related */
   // todo: @infinite-zhou 确定一下useState是不是
-  const [fromToken, setFromToken] = useState('ALPHA');
-  const [toToken, setToToken] = useState('BETA');
+  const [fromToken, setFromToken] = useState('alpha');
+  const [toToken, setToToken] = useState('beta');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
 
   /* add liquidity related */
-  const [token0Amount, setToken0Amount] = useState('');
-  const [token1Amount, setToken1Amount] = useState('');
-  const [token2Amount, setToken2Amount] = useState('');
+  const [tokenAmounts, setTokenAmounts] = useState({});
 
   /* withdraw liquidity related */
   // const [withdrawAmount1, setWithdrawAmount1] = useState('');
   // const [withdrawAmount2, setWithdrawAmount2] = useState('');
 
   // 所有支持的代币
-  const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
+  const supportedTokens = ['alpha', 'beta', 'gamma'];
+  const supportedPools = ['ALPHA-BETA-GAMMA', 'ALPHA-BETA', 'BETA-GAMMA'];
 
   /*获取poollist*/
   // const PoolList = () => {
@@ -74,20 +72,17 @@ function App() {
   };
 
   const calculateOutputAmount = async (inputAmount, tokenIn, tokenOut) => {
-
     if (!inputAmount || !contracts || !tokenIn || !tokenOut) {
       return '0';
     }
 
     try {
-      const mappedTokenIn = tokenIn === 'ALPHA' ? 'token0' : (tokenIn === 'BETA' ? 'token1' : 'token2');
-      const mappedTokenOut = tokenOut === 'ALPHA' ? 'token0' : (tokenOut === 'BETA' ? 'token1' : 'token2');
-
       const result = await getAmountOut(
         contracts,
-        mappedTokenIn,
+        selectedPool,
+        tokenIn,
         inputAmount,
-        mappedTokenOut
+        tokenOut
       );
       return result;
     } catch (error) {
@@ -108,35 +103,12 @@ function App() {
     }
   };
 
-  const handleToken0AmountChange = async (e) => {
+  const handleTokenAmountChange = async (e, tokenName) => {
     const value = e.target.value;
-    setToken0Amount(value);
-
-    if (value && !isNaN(value)) {
-      const [token1Amount, token2Amount] = await calculateTokenAmounts(value);
-      setToken1Amount(token1Amount);
-      setToken2Amount(token2Amount);
-    } else {
-      setToken1Amount('');
-      setToken2Amount('');
-    }
-  };
-
-  const calculateTokenAmounts = async (amount0) => {
-    if (!amount0 || !contracts || isNaN(amount0) || amount0 <= 0) {
-      return ['0', '0'];
-    }
-    try {
-      console.log(amount0);
-      const result = await getRequiredAmounts(contracts, amount0);
-      const subArray = result.slice(1);
-      console.log(subArray.map(item => ethers.formatEther(item)));
-
-      return subArray.map(item => ethers.formatEther(item));
-    } catch (error) {
-      console.error("Error calculating token amounts:", error);
-      return ['0', '0'];
-    }
+    setTokenAmounts(prev => ({
+      ...prev,
+      [tokenName]: value
+    }));
   };
 
   const handleConnectWallet = async () => {
@@ -157,12 +129,10 @@ function App() {
 
       // get balance
       const balances = await getTokenBalances(initializedContracts, accounts[0]);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
+      setBalances(balances);
 
       // get pool info
-      const info = await getPoolInfo(initializedContracts);
+      const info = await getPoolInfo(initializedContracts, selectedPool);
       setPoolInfo(info);
 
       alert(`Wallet connected!`);
@@ -176,19 +146,20 @@ function App() {
     try {
       if (!contracts) return;
 
-      const tokenIn = fromToken === 'ALPHA' ? 'token0' : (fromToken === 'BETA' ? 'token1' : 'token2');
-      const tokenOut = toToken === 'ALPHA' ? 'token0' : (toToken === 'BETA' ? 'token1' : 'token2');
-
-      await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
+      await swapTokens(
+        contracts,
+        selectedPool,
+        fromToken,
+        fromAmount,
+        toToken
+      );
 
       // update balance
       const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
+      setBalances(balances);
 
       // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
+      const newPoolInfo = await getPoolInfo(contracts, selectedPool);
       setPoolInfo(newPoolInfo);
 
       alert('Swap completed successfully!');
@@ -204,30 +175,29 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      // todo: @infinite-zhou 先写死,可能之后需要改
+      const tokenAddresses = [];
+      const amounts = [];
 
-      const amounts_list = [
-        ethers.parseEther(token0Amount.toString()),
-        ethers.parseEther(token1Amount.toString()),
-        ethers.parseEther(token2Amount.toString())
-      ];
+      for (const tokenName of supportedTokens) {
+        if (tokenAmounts[tokenName]) {
+          tokenAddresses.push(contracts.tokens[tokenName].address);
+          amounts.push(ethers.parseEther(tokenAmounts[tokenName].toString()));
+        }
+      }
 
-      const addresses_token = [
-        contracts.token0.address,
-        contracts.token1.address,
-        contracts.token2.address,
-      ];
-
-      await addLiquidity(contracts, addresses_token, amounts_list);
+      await addLiquidity(
+        contracts,
+        selectedPool,
+        tokenAddresses,
+        amounts
+      );
 
       // update balance
       const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
+      setBalances(balances);
 
       // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
+      const newPoolInfo = await getPoolInfo(contracts, selectedPool);
       setPoolInfo(newPoolInfo);
 
       alert("Liquidity added successfully!");
@@ -243,16 +213,29 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      await withdrawingliquidity(contracts, token0Amount);
+      const tokenAddresses = [];
+      const amounts = [];
+
+      for (const tokenName of supportedTokens) {
+        if (tokenAmounts[tokenName]) {
+          tokenAddresses.push(contracts.tokens[tokenName].address);
+          amounts.push(ethers.parseEther(tokenAmounts[tokenName].toString()));
+        }
+      }
+
+      await withdrawingliquidity(
+        contracts,
+        selectedPool,
+        tokenAddresses,
+        amounts
+      );
 
       // update balance
       const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
+      setBalances(balances);
 
       // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
+      const newPoolInfo = await getPoolInfo(contracts, selectedPool);
       setPoolInfo(newPoolInfo);
 
       alert("Liquidity withdrawn successfully!");
@@ -261,6 +244,16 @@ function App() {
       alert(`Failed to withdraw liquidity: ${error.message}`);
     }
   };
+
+  useEffect(() => {
+    const updatePoolInfo = async () => {
+      if (contracts && selectedPool) {
+        const info = await getPoolInfo(contracts, selectedPool);
+        setPoolInfo(info);
+      }
+    };
+    updatePoolInfo();
+  }, [contracts, selectedPool]);
 
   return (
     <div className="container py-5">
@@ -303,15 +296,32 @@ function App() {
         </Container>
       </nav>
       
+      {/* Pool Selection */}
+      <Row className="mb-4">
+        <Col>
+          <Form.Select
+            value={selectedPool}
+            onChange={(e) => setSelectedPool(e.target.value)}
+            className="mb-3"
+          >
+            {supportedPools.map(pool => (
+              <option key={pool} value={pool}>{pool}</option>
+            ))}
+          </Form.Select>
+        </Col>
+      </Row>
+
       {/* 个人账户余额 */}
       <Row className="mb-4">
         <Col md={2} className="mb-3">
           <Card className="h-100">
             <Card.Body>
               <Card.Title className="Card-title">Balances</Card.Title>
-              <Card.Text>ALPHA：{balance0} </Card.Text>
-              <Card.Text>BETA： {balance1} </Card.Text>
-              <Card.Text>GAMMA： {balance2} </Card.Text>
+              {Object.entries(balances).map(([token, balance]) => (
+                <Card.Text key={token}>
+                  {token.toUpperCase()}：{balance}
+                </Card.Text>
+              ))}
             </Card.Body>
           </Card>
         </Col>
@@ -330,9 +340,9 @@ function App() {
                   <tr>
                     <th>#</th>
                     <th>Pair</th>
-                    <th>Token0 Balance</th>
-                    <th>Token1 Balance</th>
-                    <th>Token3 Balance</th>
+                    {supportedTokens.map(token => (
+                      <th key={token}>{token.toUpperCase()} Balance</th>
+                    ))}
                     <th>Total LP Tokens</th>
                     <th>Fee</th>
                     <th>User LP Tokens</th>
@@ -340,30 +350,17 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* TODO:待有list后补充 
-                   {pools.map((pool) => (
-                    <tr key={pool.id}>
-                      <td>{pool.id}</td>
-                      <td>{pool.pair}</td>
-                      <td>{pool.token0Balance}</td>
-                      <td>{pool.token1Balance}</td>
-                      <td>{pool.totalLPToken}</td>
-                      <td>{pool.fee}</td>
-                      <td>{pool.userLPToken}</td>
-                      <td>${pool.userValue}</td>
-                    </tr>
-                  ))} */}
-                    <tr >
-                      <td>\</td>
-                      <td>\</td>
-                      <td>{poolInfo.token0Balance}</td>
-                      <td>{poolInfo.token1Balance}</td>
-                      <td>{poolInfo.token2Balance}</td>
-                      <td>\</td>
-                      <td>\</td>
-                      <td>\</td>
-                      <td>\</td>
-                    </tr>
+                  <tr>
+                    <td>1</td>
+                    <td>{selectedPool}</td>
+                    {supportedTokens.map(token => (
+                      <td key={token}>{poolInfo[token] || '0'}</td>
+                    ))}
+                    <td>\</td>
+                    <td>\</td>
+                    <td>\</td>
+                    <td>\</td>
+                  </tr>
                 </tbody>
               </Table>
             </Card.Body>
@@ -393,7 +390,7 @@ function App() {
                     >
                       {supportedTokens.map(token => (
                         token !== toToken && (
-                          <option key={token} value={token}>{token}</option>
+                          <option key={token} value={token}>{token.toUpperCase()}</option>
                         )
                       ))}
                     </Form.Select>
@@ -423,7 +420,7 @@ function App() {
                     >
                       {supportedTokens.map(token => (
                         token !== fromToken && (
-                          <option key={token} value={token}>{token}</option>
+                          <option key={token} value={token}>{token.toUpperCase()}</option>
                         )
                       ))}
                     </Form.Select>
@@ -442,40 +439,22 @@ function App() {
 
             <Tab eventKey="liquidity" title="Add Liquidity">
               <Form>
-                <Form.Group className="mb-3">
-                  <Form.Label>ALPHA Amount</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token0Amount}
-                    onChange={handleToken0AmountChange}
-                    placeholder="0.0"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token1Amount}
-                    readOnly
-                    placeholder="0.0"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token2Amount}
-                    readOnly
-                    placeholder="0.0"
-                  />
-                </Form.Group>
+                {supportedTokens.map(token => (
+                  <Form.Group key={token} className="mb-3">
+                    <Form.Label>{token.toUpperCase()} Amount</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={tokenAmounts[token] || ''}
+                      onChange={(e) => handleTokenAmountChange(e, token)}
+                      placeholder="0.0"
+                    />
+                  </Form.Group>
+                ))}
 
                 <Button
                   variant="primary"
                   onClick={handleAddLiquidity}
-                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                  disabled={!isWalletConnected || !Object.values(tokenAmounts).some(amount => amount > 0)}
                 >
                   Add Liquidity
                 </Button>
@@ -484,40 +463,22 @@ function App() {
 
             <Tab eventKey="withdraw" title="Withdraw Liquidity">
               <Form>
-                <Form.Group className="mb-3">
-                  <Form.Label>ALPHA Amount to Withdraw</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token0Amount}
-                    onChange={handleToken0AmountChange}
-                    placeholder="0.0"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token1Amount}
-                    readOnly
-                    placeholder="0.0"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token2Amount}
-                    readOnly
-                    placeholder="0.0"
-                  />
-                </Form.Group>
+                {supportedTokens.map(token => (
+                  <Form.Group key={token} className="mb-3">
+                    <Form.Label>{token.toUpperCase()} Amount to Withdraw</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={tokenAmounts[token] || ''}
+                      onChange={(e) => handleTokenAmountChange(e, token)}
+                      placeholder="0.0"
+                    />
+                  </Form.Group>
+                ))}
 
                 <Button
                   variant="primary"
                   onClick={handleWithdrawLiquidity}
-                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                  disabled={!isWalletConnected || !Object.values(tokenAmounts).some(amount => amount > 0)}
                 >
                   Withdraw Liquidity
                 </Button>

@@ -10,11 +10,10 @@ async function main() {
   console.log(`Sender address: ${senderWallet.address}`);
 
   // Replace with the address of the recipient account
-  //替换自己的地址
-  const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
+  const recipientAddress = "0x4563f36Bb992cD358ABC81cB6991F2fE798Ec6CE"; // My address (from MetaMask)
 
-  const NewToken = await hre.ethers.getContractFactory("NewToken");
-  const Alpha = NewToken.attach(addresses.token0);
+  const NewToken = await ethers.getContractFactory("NewToken");
+  const Alpha = NewToken.attach(addresses.tokens.alpha);
 
   const balanceAlphaFrom = await Alpha.balanceOf(`${senderWallet.address}`);
   console.log("Address:", senderWallet.address);

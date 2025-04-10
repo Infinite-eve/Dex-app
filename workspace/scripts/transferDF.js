@@ -11,7 +11,7 @@ async function main() {
   console.log(`Sender address: ${senderWallet.address}`);
 
   // 接收地址（替换为你的 MetaMask 地址）
-  const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD";
+  const recipientAddress = "0x4563f36Bb992cD358ABC81cB6991F2fE798Ec6CE";
 
   // 转账金额（以 ETH 为单位）
   const amountInEther = "1000";
