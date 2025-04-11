@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0",
+    "abdk-libraries-solidity": "^3.2.0",
     "web3": "^4.16.0"
   },
   "description": ""

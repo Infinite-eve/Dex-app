@@ -249,10 +249,15 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
+      // 确保所有输入值都是有效的数字
+      if (!token0Amount || !token1Amount || !token2Amount) {
+        throw new Error("Please enter valid amounts for all tokens");
+      }
+
       const amounts_list = [
-        ethers.parseEther(token0Amount.toString()),
-        ethers.parseEther(token1Amount.toString()),
-        ethers.parseEther(token2Amount.toString())
+        ethers.parseEther(formatNumber(token0Amount)),
+        ethers.parseEther(formatNumber(token1Amount)),
+        ethers.parseEther(formatNumber(token2Amount))
       ];
 
       const addresses_token = [
@@ -262,6 +267,11 @@ function App() {
       ];
 
       await withdrawingliquidity(contracts, addresses_token, amounts_list);
+
+      // 清空输入框
+      setToken0Amount('');
+      setToken1Amount('');
+      setToken2Amount('');
 
       // update balance
       const balances = await getTokenBalances(contracts, account);

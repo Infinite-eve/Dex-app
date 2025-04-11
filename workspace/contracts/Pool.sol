@@ -167,7 +167,27 @@ contract Pool is LPToken, ReentrancyGuard {
         return return_amount;
 
     }
+    
+    // 计算几何平均数
+    function geometricMean(uint256[] memory values) public pure returns (uint256) {
+        uint256 product = 1;
+        for (uint256 i = 0; i < values.length; i++) {
+            product *= values[i];
+        }
+        return product ** (1 / values.length);
+    }
 
+    //findmin
+    function findMin(uint256[] memory ratios) public pure returns (uint256) {
+        uint256 minRatio = ratios[0];
+        for (uint256 i = 1; i < ratios.length; i++) {
+            if (ratios[i] < minRatio) {
+                minRatio = ratios[i];
+            }
+        }
+        return minRatio;
+    }
+    
     function addLiquidity(address[] memory token_add, uint256[] memory amounts) public nonReentrant {
         require( token_add.length == amounts.length, "the lens of amount and token_add should be equal");
 
@@ -175,14 +195,17 @@ contract Pool is LPToken, ReentrancyGuard {
         //totalsupply()是LPToken的总供应量，ERC20标准接口
         // todo: @infinite-zhou 搞清楚这里的amountLP究竟是多少
         if (totalSupply() > 0) {
-            amountLP =
-                (amounts[0] * totalSupply()) /
-                tokenBalances[i_tokens_addresses[0]] ;
+            uint256[] memory ratios = new uint256[](amounts.length);
+            for (uint i = 0; i < amounts.length; i++) {
+                ratios[i] = (amounts[i] * 1e18) / tokenBalances[i_tokens_addresses[i]];
+            }
+            uint256 minRatio = findMin(ratios);
+            amountLP = (minRatio * totalSupply()) / 1e18;
         } else {
             //首次添加流动性，amountLP等于amount0
-            amountLP = amounts[0];
+            amountLP = geometricMean(amounts); // 使用几何平均数初始化
         }
-        _mint(msg.sender, amountLP);//铸造LP代币
+        _mint(msg.sender, amountLP-totalSupply());//铸造LP代币
         
         uint256 length = token_add.length;
         for (uint256 i = 0; i < length; i++) {
