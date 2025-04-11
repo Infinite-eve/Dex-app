@@ -167,7 +167,7 @@ contract Pool is LPToken, ReentrancyGuard {
         return return_amount;
 
     }
-    
+
     // 计算几何平均数
     function geometricMean(uint256[] memory values) public pure returns (uint256) {
         uint256 product = 1;
@@ -205,7 +205,7 @@ contract Pool is LPToken, ReentrancyGuard {
             //首次添加流动性，amountLP等于amount0
             amountLP = geometricMean(amounts); // 使用几何平均数初始化
         }
-        _mint(msg.sender, amountLP-totalSupply());//铸造LP代币
+        _mint(msg.sender, amountLP);//铸造LP代币
         
         uint256 length = token_add.length;
         for (uint256 i = 0; i < length; i++) {

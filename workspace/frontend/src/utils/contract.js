@@ -51,35 +51,64 @@ export const getContracts = async (signer) => {
 
 export const getTokenBalances = async (contracts, address) => {
     try {
+        console.log("Getting balances for address:", address);
+        
         const token0Balance = await contracts.token0.contract.balanceOf(address);
+        console.log("Token0 raw balance:", token0Balance.toString());
+        
         const token1Balance = await contracts.token1.contract.balanceOf(address);
+        console.log("Token1 raw balance:", token1Balance.toString());
+        
         const token2Balance = await contracts.token2.contract.balanceOf(address);
-        return {
+        console.log("Token2 raw balance:", token2Balance.toString());
+        
+        const formattedBalances = {
             token0: ethers.formatEther(token0Balance),
             token1: ethers.formatEther(token1Balance),
             token2: ethers.formatEther(token2Balance)
         };
+        
+        console.log("Formatted balances:", formattedBalances);
+        return formattedBalances;
     } catch (error) {
         console.error("Error in getTokenBalances:", error);
-        throw error;
+        return {
+            token0: '0',
+            token1: '0',
+            token2: '0'
+        };
     }
-  };
+};
 
 
 export const getPoolInfo = async (contracts) => {
   try {
-      const token0Balance = await contracts.token0.contract.balanceOf(contracts.pool.address);
-      const token1Balance = await contracts.token1.contract.balanceOf(contracts.pool.address);
-      const token2Balance = await contracts.token2.contract.balanceOf(contracts.pool.address);
+      console.log("Getting pool info for address:", contracts.pool.address);
       
-      return {
+      const token0Balance = await contracts.token0.contract.balanceOf(contracts.pool.address);
+      console.log("Pool Token0 raw balance:", token0Balance.toString());
+      
+      const token1Balance = await contracts.token1.contract.balanceOf(contracts.pool.address);
+      console.log("Pool Token1 raw balance:", token1Balance.toString());
+      
+      const token2Balance = await contracts.token2.contract.balanceOf(contracts.pool.address);
+      console.log("Pool Token2 raw balance:", token2Balance.toString());
+      
+      const formattedBalances = {
           token0Balance: ethers.formatEther(token0Balance),
           token1Balance: ethers.formatEther(token1Balance),
           token2Balance: ethers.formatEther(token2Balance)
       };
+      
+      console.log("Formatted pool balances:", formattedBalances);
+      return formattedBalances;
   } catch (error) {
       console.error("Error in getPoolInfo:", error);
-      throw error;
+      return {
+          token0Balance: '0',
+          token1Balance: '0',
+          token2Balance: '0'
+      };
   }
 };
 
@@ -182,3 +211,33 @@ export const withdrawingliquidity = async (contracts, addresses_token, amounts_l
     throw error;
   }
 };
+
+// 获取LP token信息
+export const getLPTokenInfo = async (contracts, address) => {
+  try {
+    // 获取LP token总供应量
+    const totalSupply = await contracts.pool.contract.totalSupply();
+    
+    // 获取用户持有的LP token数量
+    const userBalance = await contracts.pool.contract.balanceOf(address);
+    
+    // 计算用户份额百分比
+    const percentage = totalSupply.toString() === '0' 
+      ? '0' 
+      : (Number(userBalance.toString()) / Number(totalSupply.toString()) * 100).toFixed(2);
+    
+    // 确保BigInt值被正确转换为字符串
+    return {
+      totalSupply: totalSupply ? ethers.formatEther(totalSupply.toString()) : '0',
+      userBalance: userBalance ? ethers.formatEther(userBalance.toString()) : '0',
+      percentage: percentage
+    };
+  } catch (error) {
+    console.error("Error getting LP token info:", error);
+    return {
+      totalSupply: '0',
+      userBalance: '0',
+      percentage: '0'
+    };
+  }
+}

@@ -8,12 +8,20 @@ import { Card, Tabs, Tab, Row, Col, Form, Button,Container, Badge,Table} from 'r
 /* Interaction with Backend */
 import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity, getLPTokenInfo } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
   if (!number || isNaN(number)) return '0.00';
-  return Number(number).toFixed(2);
+  // 确保number是数字类型
+  const num = typeof number === 'string' ? parseFloat(number) : number;
+  if (isNaN(num)) return '0.00';
+  // 处理非常小的数字，使用科学计数法
+  if (num < 0.000001 && num > 0) {
+    return num.toExponential(6);
+  }
+  // 正常数字保留2位小数
+  return num.toFixed(2);
 };
 
 function App() {
@@ -28,6 +36,7 @@ function App() {
   const [balance1, setBalance1] = useState(0);
   const [balance2, setBalance2] = useState(0);
   const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0', token2Balance: '0' });
+  const [lpInfo, setLpInfo] = useState({ totalSupply: '0', userBalance: '0' });
 
   /* swap related */
   // todo: @infinite-zhou 确定一下useState是不是
@@ -145,6 +154,24 @@ function App() {
     }
   };
 
+  const updatePoolAndBalances = async () => {
+    if (!contracts || !account) return;
+    
+    // 获取用户代币余额
+    const balances = await getTokenBalances(contracts, account);
+    setBalance0(balances.token0);
+    setBalance1(balances.token1);
+    setBalance2(balances.token2);
+
+    // 获取池子信息
+    const info = await getPoolInfo(contracts);
+    setPoolInfo(info);
+
+    // 获取LP token信息
+    const lpTokenInfo = await getLPTokenInfo(contracts, account);
+    setLpInfo(lpTokenInfo);
+  };
+
   const handleConnectWallet = async () => {
     try {
       if (!window.ethereum) {
@@ -154,22 +181,32 @@ function App() {
       const accounts = await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
 
+      // 先设置合约
       const initializedContracts = await getContracts(signer);
+      console.log("Contracts initialized");
 
+      // 设置状态
       setProvider(provider);
       setAccount(accounts[0]);
       setContracts(initializedContracts);
       setIsWalletConnected(true);
 
-      // get balance
+      // 立即获取余额信息
       const balances = await getTokenBalances(initializedContracts, accounts[0]);
+      console.log("Token balances:", balances);
       setBalance0(balances.token0);
       setBalance1(balances.token1);
       setBalance2(balances.token2);
 
-      // get pool info
+      // 获取池子信息
       const info = await getPoolInfo(initializedContracts);
+      console.log("Pool info:", info);
       setPoolInfo(info);
+
+      // 获取LP token信息
+      const lpTokenInfo = await getLPTokenInfo(initializedContracts, accounts[0]);
+      console.log("LP token info:", lpTokenInfo);
+      setLpInfo(lpTokenInfo);
 
       alert(`Wallet connected!`);
     } catch (error) {
@@ -187,15 +224,8 @@ function App() {
 
       await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
 
-      // update balance
-      const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
-
-      // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
-      setPoolInfo(newPoolInfo);
+      // 更新所有信息
+      await updatePoolAndBalances();
 
       alert('Swap completed successfully!');
     } catch (error) {
@@ -209,8 +239,6 @@ function App() {
       if (!contracts || !account) {
         throw new Error("Contracts or account not initialized");
       }
-
-      // todo: @infinite-zhou 先写死,可能之后需要改
 
       const amounts_list = [
         ethers.parseEther(token0Amount.toString()),
@@ -226,15 +254,8 @@ function App() {
 
       await addLiquidity(contracts, addresses_token, amounts_list);
 
-      // update balance
-      const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
-
-      // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
-      setPoolInfo(newPoolInfo);
+      // 更新所有信息
+      await updatePoolAndBalances();
 
       alert("Liquidity added successfully!");
     } catch (error) {
@@ -249,7 +270,6 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      // 确保所有输入值都是有效的数字
       if (!token0Amount || !token1Amount || !token2Amount) {
         throw new Error("Please enter valid amounts for all tokens");
       }
@@ -273,15 +293,8 @@ function App() {
       setToken1Amount('');
       setToken2Amount('');
 
-      // update balance
-      const balances = await getTokenBalances(contracts, account);
-      setBalance0(balances.token0);
-      setBalance1(balances.token1);
-      setBalance2(balances.token2);
-
-      // update pool info
-      const newPoolInfo = await getPoolInfo(contracts);
-      setPoolInfo(newPoolInfo);
+      // 更新所有信息
+      await updatePoolAndBalances();
 
       alert("Liquidity withdrawn successfully!");
     } catch (error) {
@@ -364,7 +377,7 @@ function App() {
                     <th>Total LP Tokens</th>
                     <th>Fee</th>
                     <th>User LP Tokens</th>
-                    <th>User Total Value</th>
+                    <th>Share Percentage</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -381,16 +394,16 @@ function App() {
                       <td>${pool.userValue}</td>
                     </tr>
                   ))} */}
-                    <tr >
+                    <tr>
                       <td>\</td>
-                      <td>\</td>
+                      <td>ALPHA-BETA-GAMMA</td>
                       <td>{formatNumber(poolInfo.token0Balance)}</td>
                       <td>{formatNumber(poolInfo.token1Balance)}</td>
                       <td>{formatNumber(poolInfo.token2Balance)}</td>
-                      <td>\</td>
-                      <td>\</td>
-                      <td>\</td>
-                      <td>\</td>
+                      <td>{formatNumber(lpInfo.totalSupply)}</td>
+                      <td>0.3%</td>
+                      <td>{formatNumber(lpInfo.userBalance)}</td>
+                      <td>{lpInfo.percentage}%</td>
                     </tr>
                 </tbody>
               </Table>
