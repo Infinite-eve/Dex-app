@@ -195,19 +195,14 @@ export const addLiquidity = async (contracts, addresses_token, amounts_list) => 
 };
 
 // 取流动性
-export const withdrawingliquidity = async (contracts, addresses_token, amounts_list) => {
+export const withdrawLiquidity = async (contracts, lpTokenAmount) => {
   try {
-    
-    await contracts.token0.contract.approve(contracts.pool.address, amounts_list[0] );
-    await contracts.token1.contract.approve(contracts.pool.address, amounts_list[1] );
-    await contracts.token2.contract.approve(contracts.pool.address, amounts_list[2] );
-    
     // Withdraw liquidity
-    const tx = await contracts.pool.contract.withdrawingliquidity(addresses_token, amounts_list);
+    const tx = await contracts.pool.contract.withdrawLiquidity(lpTokenAmount);
     await tx.wait();
     return tx;
   } catch (error) {
-    console.error("Error in withdrawingliquidity:", error);
+    console.error("Error in withdrawLiquidity:", error);
     throw error;
   }
 };

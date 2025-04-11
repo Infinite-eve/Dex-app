@@ -9,7 +9,7 @@ import { Card, Tabs, Tab, Row, Col, Form, Button,Container, Badge,Table} from 'r
 /* Interaction with Backend */
 import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawingliquidity, getLPTokenInfo } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo} from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
@@ -52,8 +52,7 @@ function App() {
   const [token2Amount, setToken2Amount] = useState('');
 
   /* withdraw liquidity related */
-  // const [withdrawAmount1, setWithdrawAmount1] = useState('');
-  // const [withdrawAmount2, setWithdrawAmount2] = useState('');
+  const [lpTokenAmount, setLpTokenAmount] = useState('');
 
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
@@ -271,28 +270,15 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      if (!token0Amount || !token1Amount || !token2Amount) {
-        throw new Error("Please enter valid amounts for all tokens");
+      if (!lpTokenAmount) {
+        throw new Error("Please enter valid LP token amount");
       }
 
-      const amounts_list = [
-        ethers.parseEther(formatNumber(token0Amount)),
-        ethers.parseEther(formatNumber(token1Amount)),
-        ethers.parseEther(formatNumber(token2Amount))
-      ];
-
-      const addresses_token = [
-        contracts.token0.address,
-        contracts.token1.address,
-        contracts.token2.address,
-      ];
-
-      await withdrawingliquidity(contracts, addresses_token, amounts_list);
+      const lpTokenAmountWei = ethers.parseEther(formatNumber(lpTokenAmount));
+      await withdrawLiquidity(contracts, lpTokenAmountWei);
 
       // 清空输入框
-      setToken0Amount('');
-      setToken1Amount('');
-      setToken2Amount('');
+      setLpTokenAmount('');
 
       // 更新所有信息
       await updatePoolAndBalances();
@@ -538,40 +524,20 @@ function App() {
             <Tab eventKey="withdraw" title="Withdraw Liquidity">
               <Form>
                 <Form.Group className="mb-3">
-                  <Form.Label>ALPHA Amount to Withdraw</Form.Label>
+                  <Form.Label>LP Token Amount to Withdraw</Form.Label>
                   <Form.Control
                     type="number"
-                    value={token0Amount}
-                    onChange={handleToken0AmountChange}
+                    value={lpTokenAmount}
+                    onChange={(e) => setLpTokenAmount(e.target.value)}
                     placeholder="0.00"
                     step="0.01"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formatNumber(token1Amount)}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formatNumber(token2Amount)}
-                    readOnly
-                    placeholder="0.00"
                   />
                 </Form.Group>
 
                 <Button
                   variant="primary"
                   onClick={handleWithdrawLiquidity}
-                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                  disabled={!isWalletConnected || !lpTokenAmount || lpTokenAmount <= 0}
                 >
                   Withdraw Liquidity
                 </Button>

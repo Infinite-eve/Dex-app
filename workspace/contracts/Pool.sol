@@ -280,54 +280,34 @@ contract Pool is LPToken, ReentrancyGuard {
     }
 
     // function to withdraw liquidity
-    //销毁LP代币，并转移代币
-    function withdrawingliquidity(address[] memory token_add, uint256[] memory amounts) public {
-        require( token_add.length == amounts.length, "the lens of amount and token_add should be equal");
+    function withdrawLiquidity(uint256 lpTokenAmount) public nonReentrant {
+        require(lpTokenAmount > 0, "Cannot withdraw zero LP tokens");
+        require(balanceOf(msg.sender) >= lpTokenAmount, "Insufficient LP token balance");
 
-        uint256 amountLP;
-        //totalsupply()是LPToken的总供应量，ERC20标准接口
-        // todo: @infinite-zhou 搞清楚这里的amountLP究竟是多少
-        if (totalSupply() > 0) {
-            amountLP =
-                (amounts[0] * totalSupply()) /
-                tokenBalances[i_tokens_addresses[0]] ;
-        } else {
-            //首次添加流动性，amountLP等于amount0
-            amountLP = amounts[0];
-        }
-        _burn(msg.sender, amountLP);//铸造LP代币
+        // 计算提取比例
+        uint256 ratio = (lpTokenAmount * 1e18) / totalSupply();
         
-        uint256 length = token_add.length;
+        // 按比例提取所有代币
+        uint256 length = i_tokens_addresses.length;
+        uint256[] memory withdrawAmounts = new uint256[](length);
+        
         for (uint256 i = 0; i < length; i++) {
-            
-            address i_token_addr = token_add[i];
-            uint index = i_tokens_map[i_token_addr];
-            IERC20 i_token = i_tokens[index];
-
+            address tokenAddr = i_tokens_addresses[i];
+            uint256 amount = (tokenBalances[tokenAddr] * ratio) / 1e18;
+            withdrawAmounts[i] = amount;
+            tokenBalances[tokenAddr] -= amount;
             require(
-                i_token.transferFrom(msg.sender, address(this), amounts[i]),
-                "Transfer token0 failed"
+                IERC20(tokenAddr).transfer(msg.sender, amount),
+                "Token transfer failed"
             );
-            tokenBalances[i_token_addr] -= amounts[i];
         }
+
+        // 销毁LP代币
+        _burn(msg.sender, lpTokenAmount);
 
         emit WithdrawLiquidity(
-            token_add,
-            amounts
+            i_tokens_addresses,
+            withdrawAmounts
         );
     }
-
-    //getReserves函数返回池中代币的余额和LPToken的总供应量
-    // function getReserves()
-    //     public
-    //     view
-    //     returns (uint256, uint256, uint256, uint256)
-    // {
-    //     return (
-    //         i_token0.balanceOf(address(this)),
-    //         i_token1.balanceOf(address(this)),
-    //         i_token2.balanceOf(address(this)),
-    //         totalSupply()
-    //     );
-    // }
 }
