@@ -365,7 +365,7 @@ function App() {
               <Table striped bordered hover>
                 <thead>
                   <tr className="table-primary">
-                    <th colSpan="7">Basic Pool Information</th>
+                    <th colSpan="8">Basic Pool Information</th>
                     <th colSpan="2">User Holder</th>
                   </tr>
                   <tr>
@@ -376,7 +376,8 @@ function App() {
                     <th>Token3 Balance</th>
                     <th>Total LP Tokens</th>
                     <th>Fee</th>
-                    <th>User LP Tokens</th>
+                    <th>lpFees</th>
+                    <th>User Total Value</th>
                     <th>Share Percentage</th>
                   </tr>
                 </thead>
@@ -402,6 +403,7 @@ function App() {
                       <td>{formatNumber(poolInfo.token2Balance)}</td>
                       <td>{formatNumber(lpInfo.totalSupply)}</td>
                       <td>0.3%</td>
+                      <td>暂无</td>
                       <td>{formatNumber(lpInfo.userBalance)}</td>
                       <td>{lpInfo.percentage}%</td>
                     </tr>

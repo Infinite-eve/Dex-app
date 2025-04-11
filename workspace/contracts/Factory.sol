@@ -42,7 +42,7 @@ contract Factory {
     }
 
     // 获取排序后的池哈希键
-    function getPoolKey(address[] memory tokens) public view returns (bytes32) {
+    function getPoolKey(address[] memory tokens) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_sortTokens(tokens)));
     }
 

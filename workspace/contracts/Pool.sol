@@ -112,7 +112,6 @@ contract Pool is LPToken, ReentrancyGuard {
         require(amountIn > 0, "Zero amount");
 
         // Check balances
-        uint256 balanceIn = tokenBalances[tokenIn];
         uint256 balanceOut = tokenBalances[tokenOut];
         require(balanceOut > 0, "Insufficient output token liquidity");
         
@@ -122,8 +121,6 @@ contract Pool is LPToken, ReentrancyGuard {
         require(amountOut <= balanceOut, "Insufficient output token balance");
 
         // swapping tokens
-        //msg.sender是当前调用合约的账户地址
-        //require函数用于检查代币转移是否成功
         require(
             IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
             "Transfer tokenIn failed"
@@ -136,7 +133,7 @@ contract Pool is LPToken, ReentrancyGuard {
         // update pool balances
         tokenBalances[tokenIn] += amountIn;
         tokenBalances[tokenOut] -= amountOut;
-        //emit事件，用于记录代币交换操作
+        
         emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
     }
 
@@ -170,11 +167,67 @@ contract Pool is LPToken, ReentrancyGuard {
 
     // 计算几何平均数
     function geometricMean(uint256[] memory values) public pure returns (uint256) {
-        uint256 product = 1;
-        for (uint256 i = 0; i < values.length; i++) {
-            product *= values[i];
+        require(values.length > 0, "Empty array");
+        
+        // 如果只有一个值，直接返回
+        if (values.length == 1) {
+            return values[0];
         }
-        return product ** (1 / values.length);
+
+        // 为了避免溢出，我们先将每个数除以一个合适的因子
+        uint256[] memory scaledValues = new uint256[](values.length);
+        for (uint256 i = 0; i < values.length; i++) {
+            // 将每个数除以1e18，因为输入的数字都是以wei为单位的
+            scaledValues[i] = values[i] / 1e18;
+            require(scaledValues[i] > 0, "Value too small after scaling");
+        }
+        
+        // 计算乘积的平方根
+        if (values.length == 2) {
+            uint256 sqrt = _sqrt(scaledValues[0] * scaledValues[1]);
+            return sqrt * 1e18;
+        }
+        
+        // 对于三个数，计算立方根
+        if (values.length == 3) {
+            uint256 product = scaledValues[0] * scaledValues[1];
+            require(product / scaledValues[0] == scaledValues[1], "Multiplication overflow");
+            product = product * scaledValues[2];
+            require(product / scaledValues[2] > 0, "Multiplication overflow");
+            
+            uint256 cbrt = _cbrt(product);
+            return cbrt * 1e18;
+        }
+
+        revert("Unsupported number of values");
+    }
+
+    // 计算平方根
+    function _sqrt(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        
+        uint256 z = (x + 1) / 2;
+        uint256 y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+        return y;
+    }
+
+    // 计算立方根
+    function _cbrt(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        
+        uint256 z = (x + 1) / 3;
+        uint256 y = x;
+        
+        for (uint i = 0; i < 100 && z < y; i++) {
+            y = z;
+            z = (2 * z + x / (z * z)) / 3;
+        }
+        
+        return y;
     }
 
     //findmin
@@ -192,8 +245,6 @@ contract Pool is LPToken, ReentrancyGuard {
         require( token_add.length == amounts.length, "the lens of amount and token_add should be equal");
 
         uint256 amountLP;
-        //totalsupply()是LPToken的总供应量，ERC20标准接口
-        // todo: @infinite-zhou 搞清楚这里的amountLP究竟是多少
         if (totalSupply() > 0) {
             uint256[] memory ratios = new uint256[](amounts.length);
             for (uint i = 0; i < amounts.length; i++) {
@@ -202,21 +253,23 @@ contract Pool is LPToken, ReentrancyGuard {
             uint256 minRatio = findMin(ratios);
             amountLP = (minRatio * totalSupply()) / 1e18;
         } else {
-            //首次添加流动性，amountLP等于amount0
-            amountLP = geometricMean(amounts); // 使用几何平均数初始化
+            // 首次添加流动性，使用几何平均数
+            amountLP = geometricMean(amounts);
         }
-        _mint(msg.sender, amountLP);//铸造LP代币
         
+        // 铸造LP代币
+        _mint(msg.sender, amountLP);
+        
+        // 转移代币到池子
         uint256 length = token_add.length;
         for (uint256 i = 0; i < length; i++) {
-            
             address i_token_addr = token_add[i];
             uint index = i_tokens_map[i_token_addr];
             IERC20 i_token = i_tokens[index];
 
             require(
                 i_token.transferFrom(msg.sender, address(this), amounts[i]),
-                "Transfer token0 failed"
+                "Transfer token failed"
             );
             tokenBalances[i_token_addr] += amounts[i];
         }
