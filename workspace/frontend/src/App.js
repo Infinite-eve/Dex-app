@@ -1,4 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
 /* User Interface */
@@ -328,6 +329,13 @@ function App() {
                   <Badge pill bg="secondary" className="fs-6 py-2">
                     {`${account?.slice(0, 6)}...${account?.slice(-4)}`}
                   </Badge>
+                  <Button 
+                    variant="outline-primary"
+                    onClick={updatePoolAndBalances}
+                    size="sm"
+                  >
+                    <i className="bi bi-arrow-clockwise"></i> Refresh
+                  </Button>
                 </div>
               ) : (
                 <Button
