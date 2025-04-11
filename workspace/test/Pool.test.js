@@ -284,52 +284,50 @@ describe("Pool Contract", function () {
     });
 
     it("should withdraw liquidity correctly", async function () {
-      const withdrawAmount0 = ethers.parseEther("50");
+      // 添加初始流动性
+      const initialAmount = ethers.parseEther("100");
+      await pool.connect(user).addLiquidity(initialAmount);
       
-      // Get LP balance before withdrawal
-      const lpBalanceBefore = await pool.balanceOf(user.address);
+      // 获取用户的LP token余额
+      const lpBalance = await pool.balanceOf(user.address);
       
-      // Get token balances before withdrawal
+      // 提取一半的流动性
+      const withdrawLPAmount = lpBalance / 2n;
+      
+      // 获取提取前的代币余额
       const balanceBefore0 = await token0.balanceOf(user.address);
       const balanceBefore1 = await token1.balanceOf(user.address);
       const balanceBefore2 = await token2.balanceOf(user.address);
       
-      // Withdraw liquidity
-      const tx = await pool.connect(user).withdrawingliquidity(withdrawAmount0);
+      // 提取流动性
+      const tx = await pool.connect(user).withdrawLiquidity(withdrawLPAmount);
       
-      // Expected LP burned: (50 * 100) / 100 = 50
-      const expectedLPBurned = withdrawAmount0;
-      
-      // Get LP balance after withdrawal
+      // 验证LP token被正确销毁
       const lpBalanceAfter = await pool.balanceOf(user.address);
-      expect(lpBalanceBefore - lpBalanceAfter).to.equal(expectedLPBurned);
+      expect(lpBalanceAfter).to.equal(lpBalance - withdrawLPAmount);
       
-      // Check token balances after withdrawal
+      // 验证代币返还数量
       const balanceAfter0 = await token0.balanceOf(user.address);
       const balanceAfter1 = await token1.balanceOf(user.address);
       const balanceAfter2 = await token2.balanceOf(user.address);
       
-      expect(balanceAfter0 - balanceBefore0).to.equal(withdrawAmount0);
-      expect(balanceAfter1 - balanceBefore1).to.equal(withdrawAmount0 * 2n);
-      expect(balanceAfter2 - balanceBefore2).to.equal(withdrawAmount0 * 3n);
+      // 应该返还一半的代币
+      expect(balanceAfter0 - balanceBefore0).to.equal(initialAmount / 2n);
+      expect(balanceAfter1 - balanceBefore1).to.equal(initialAmount * 2n / 2n);
+      expect(balanceAfter2 - balanceBefore2).to.equal(initialAmount * 3n / 2n);
       
-      // Check reserves after withdrawal
+      // 验证池子余额
       const [res0, res1, res2] = await pool.getReserves();
-      expect(res0).to.equal(ethers.parseEther("50")); // 100 - 50
-      expect(res1).to.equal(ethers.parseEther("100")); // 200 - 100
-      expect(res2).to.equal(ethers.parseEther("150")); // 300 - 150
+      expect(res0).to.equal(initialAmount / 2n);
+      expect(res1).to.equal(initialAmount * 2n / 2n);
+      expect(res2).to.equal(initialAmount * 3n / 2n);
       
-      // Check event
+      // 验证事件
       await expect(tx)
         .to.emit(pool, "WithdrawLiquidity")
         .withArgs(
-          expectedLPBurned, 
-          token0.getAddress(), 
-          withdrawAmount0, 
-          token1.getAddress(), 
-          withdrawAmount0 * 2n,
-          token2.getAddress(),
-          withdrawAmount0 * 3n
+          i_tokens_addresses,
+          [initialAmount / 2n, initialAmount * 2n / 2n, initialAmount * 3n / 2n]
         );
     });
   });
