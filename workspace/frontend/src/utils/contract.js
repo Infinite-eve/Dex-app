@@ -127,20 +127,23 @@ export const getAmountOut = async (contracts, tokenIn, amountIn, tokenOut) => {
     }
   };
 
-// todo: infinite-zhou 待废弃
 export const getRequiredAmounts = async (contracts, amount0) => {
   try {
       const amount0Wei = ethers.parseEther(amount0.toString());
-      console.log(contracts.pool.contract.tokenBalances)
       const res = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
       
-      return res;
+      // 正确处理返回值：将每个BigInt转换为字符串
+      const formattedAmounts = [];
+      for (let i = 0; i < res.length; i++) {
+          formattedAmounts.push(ethers.formatEther(res[i]));
+      }
+      
+      return formattedAmounts;
   } catch (error) {
       console.error("Error in getRequiredAmounts:", error);
       throw error;
   }
 };
-
 
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
@@ -236,3 +239,93 @@ export const getLPTokenInfo = async (contracts, address) => {
     };
   }
 }
+
+// 获取池子中累积的手续费
+export const getPoolFees = async (contracts) => {
+  try {
+    const token0Fee = await contracts.pool.contract.lpFee(contracts.token0.address);
+    const token1Fee = await contracts.pool.contract.lpFee(contracts.token1.address);
+    const token2Fee = await contracts.pool.contract.lpFee(contracts.token2.address);
+    
+    return {
+      token0Fee: ethers.formatEther(token0Fee),
+      token1Fee: ethers.formatEther(token1Fee),
+      token2Fee: ethers.formatEther(token2Fee)
+    };
+  } catch (error) {
+    console.error("Error getting pool fees:", error);
+    return {
+      token0Fee: '0',
+      token1Fee: '0',
+      token2Fee: '0'
+    };
+  }
+};
+
+// 计算用户可领取的奖励
+export const getClaimableRewards = async (contracts, account) => {
+  if (!contracts || !account) return { token0: '0', token1: '0', token2: '0' };
+  
+  try {
+    // 获取用户LP代币余额
+    const userLpBalance = await contracts.pool.contract.balanceOf(account);
+    
+    // 获取总LP代币供应量
+    const totalSupply = await contracts.pool.contract.totalSupply();
+    
+    if (totalSupply.toString() === '0' || userLpBalance.toString() === '0') {
+      return { token0: '0', token1: '0', token2: '0' };
+    }
+    
+    // 获取每种代币的手续费
+    const token0Fee = await contracts.pool.contract.lpFee(contracts.token0.address);
+    const token1Fee = await contracts.pool.contract.lpFee(contracts.token1.address);
+    const token2Fee = await contracts.pool.contract.lpFee(contracts.token2.address);
+    
+    // 计算用户应得份额
+    const token0Share = (token0Fee * userLpBalance) / totalSupply;
+    const token1Share = (token1Fee * userLpBalance) / totalSupply;
+    const token2Share = (token2Fee * userLpBalance) / totalSupply;
+    
+    return {
+      token0: ethers.formatEther(token0Share),
+      token1: ethers.formatEther(token1Share),
+      token2: ethers.formatEther(token2Share)
+    };
+  } catch (error) {
+    console.error("Error calculating claimable rewards:", error);
+    return {
+      token0: '0',
+      token1: '0',
+      token2: '0'
+    };
+  }
+};
+
+// 领取LP奖励
+export const claimLpIncentives = async (contracts, tokenAddress, amount = 0) => {
+  try {
+    let tx;
+    
+    // 根据是否提供了具体数量采用不同的调用方式
+    if (amount && amount !== 0) {
+      try {
+        // 尝试调用带金额参数的版本
+        tx = await contracts.pool.contract.claimLpIncentives(tokenAddress, amount);
+      } catch (error) {
+        console.warn("带参数版本调用失败，尝试无参数版本");
+        // 如果带参数版本调用失败，回退到无参数版本
+        tx = await contracts.pool.contract.claimLpIncentives(tokenAddress);
+      }
+    } else {
+      // 直接调用无参数版本
+      tx = await contracts.pool.contract.claimLpIncentives(tokenAddress);
+    }
+    
+    await tx.wait();
+    return tx;
+  } catch (error) {
+    console.error("Error claiming LP incentives:", error);
+    throw error;
+  }
+};

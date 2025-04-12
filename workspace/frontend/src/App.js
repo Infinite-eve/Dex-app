@@ -9,7 +9,7 @@ import { Card, Tabs, Tab, Row, Col, Form, Button,Container, Badge,Table} from 'r
 /* Interaction with Backend */
 import { React, useState } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo} from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getPoolFees, getClaimableRewards, claimLpIncentives } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
@@ -38,6 +38,8 @@ function App() {
   const [balance2, setBalance2] = useState(0);
   const [poolInfo, setPoolInfo] = useState({ token0Balance: '0', token1Balance: '0', token2Balance: '0' });
   const [lpInfo, setLpInfo] = useState({ totalSupply: '0', userBalance: '0' });
+  const [poolFees, setPoolFees] = useState({ token0Fee: '0', token1Fee: '0', token2Fee: '0' });
+  const [claimableRewards, setClaimableRewards] = useState({ token0: '0', token1: '0', token2: '0' });
 
   /* swap related */
   // todo: @infinite-zhou 确定一下useState是不是
@@ -53,6 +55,9 @@ function App() {
 
   /* withdraw liquidity related */
   const [lpTokenAmount, setLpTokenAmount] = useState('');
+
+  // 添加新的状态变量
+  const [rewardAmounts, setRewardAmounts] = useState({ token0: '', token1: '', token2: '' });
 
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
@@ -170,6 +175,14 @@ function App() {
     // 获取LP token信息
     const lpTokenInfo = await getLPTokenInfo(contracts, account);
     setLpInfo(lpTokenInfo);
+    
+    // 获取累积手续费
+    const fees = await getPoolFees(contracts);
+    setPoolFees(fees);
+    
+    // 获取用户可领取的奖励
+    const rewards = await getClaimableRewards(contracts, account);
+    setClaimableRewards(rewards);
   };
 
   const handleConnectWallet = async () => {
@@ -222,12 +235,16 @@ function App() {
       const tokenIn = fromToken === 'ALPHA' ? 'token0' : (fromToken === 'BETA' ? 'token1' : 'token2');
       const tokenOut = toToken === 'ALPHA' ? 'token0' : (toToken === 'BETA' ? 'token1' : 'token2');
 
+      // 计算手续费
+      const fee = parseFloat(fromAmount) * 0.003;
+
       await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
 
       // 更新所有信息
       await updatePoolAndBalances();
 
-      alert('Swap completed successfully!');
+      // 显示包含手续费的成功消息
+      alert(`Swap completed successfully!\nAmount: ${fromAmount} ${fromToken}\nFee: ${fee.toFixed(6)} ${fromToken} (0.3%)`);
     } catch (error) {
       console.error(error);
       alert('Failed to swap tokens');
@@ -287,6 +304,64 @@ function App() {
     } catch (error) {
       console.error("Detailed error:", error);
       alert(`Failed to withdraw liquidity: ${error.message}`);
+    }
+  };
+
+  // 修改处理函数，接受数量参数
+  const handleClaimRewards = async (tokenAddress, tokenKey, amount) => {
+    try {
+      if (!contracts || !account) return;
+      
+      // 如果没有提供数量或数量为0，则使用全部可用数量
+      const claimAmount = !amount || amount === '' 
+        ? 0  // 在合约中 0 表示提取全部
+        : ethers.parseEther(amount.toString());
+      
+      // 调用修改后的合约函数
+      await claimLpIncentives(contracts, tokenAddress, claimAmount);
+      
+      // 重置输入字段
+      setRewardAmounts(prev => ({
+        ...prev,
+        [tokenKey]: ''
+      }));
+      
+      // 更新所有信息
+      await updatePoolAndBalances();
+      
+      // 显示成功消息
+      alert('Rewards claimed successfully!');
+    } catch (error) {
+      console.error(error);
+      alert(`Failed to claim rewards: ${error.message}`);
+    }
+  };
+
+  // 一键提取所有代币的奖励
+  const handleClaimAllRewards = async () => {
+    try {
+      if (!contracts || !account) return;
+      
+      if (parseFloat(claimableRewards.token0) > 0) {
+        await claimLpIncentives(contracts, contracts.token0.address, 0);
+      }
+      
+      if (parseFloat(claimableRewards.token1) > 0) {
+        await claimLpIncentives(contracts, contracts.token1.address, 0);
+      }
+      
+      if (parseFloat(claimableRewards.token2) > 0) {
+        await claimLpIncentives(contracts, contracts.token2.address, 0);
+      }
+      
+      // 更新所有信息
+      await updatePoolAndBalances();
+      
+      // 显示成功消息
+      alert('All rewards claimed successfully!');
+    } catch (error) {
+      console.error(error);
+      alert(`Failed to claim all rewards: ${error.message}`);
     }
   };
 
@@ -397,7 +472,11 @@ function App() {
                       <td>{formatNumber(poolInfo.token2Balance)}</td>
                       <td>{formatNumber(lpInfo.totalSupply)}</td>
                       <td>0.3%</td>
-                      <td>暂无</td>
+                      <td>
+                        <div>ALPHA: {formatNumber(poolFees.token0Fee)}</div>
+                        <div>BETA: {formatNumber(poolFees.token1Fee)}</div>
+                        <div>GAMMA: {formatNumber(poolFees.token2Fee)}</div>
+                      </td>
                       <td>{formatNumber(lpInfo.userBalance)}</td>
                       <td>{lpInfo.percentage}%</td>
                     </tr>
@@ -467,6 +546,15 @@ function App() {
                     </Form.Select>
                   </div>
                 </Form.Group>
+
+                {/* 添加手续费显示 */}
+                {fromAmount && parseFloat(fromAmount) > 0 && (
+                  <div className="text-muted mb-3">
+                    <small>
+                      Fee: {formatNumber(parseFloat(fromAmount) * 0.003)} {fromToken} (0.3%)
+                    </small>
+                  </div>
+                )}
 
                 <Button
                   variant="primary"
@@ -542,6 +630,144 @@ function App() {
                   Withdraw Liquidity
                 </Button>
               </Form>
+            </Tab>
+
+            <Tab eventKey="rewards" title="LP Rewards">
+              <Card className="mb-4">
+                <Card.Body>
+                  <Card.Title>Your Claimable LP Rewards</Card.Title>
+                  
+                  <div className="text-end mb-3">
+                    <Button 
+                      variant="outline-primary" 
+                      onClick={handleClaimAllRewards}
+                      disabled={!isWalletConnected || 
+                        (parseFloat(claimableRewards.token0) <= 0 && 
+                         parseFloat(claimableRewards.token1) <= 0 && 
+                         parseFloat(claimableRewards.token2) <= 0)}
+                    >
+                      Claim All Rewards
+                    </Button>
+                  </div>
+                  
+                  <Row>
+                    <Col md={4}>
+                      <Card>
+                        <Card.Body>
+                          <Card.Title>ALPHA</Card.Title>
+                          <Card.Text>Available: {formatNumber(claimableRewards.token0)}</Card.Text>
+                          <Form.Group className="mb-3">
+                            <Form.Control
+                              type="number"
+                              value={rewardAmounts.token0}
+                              onChange={(e) => setRewardAmounts(prev => ({...prev, token0: e.target.value}))}
+                              placeholder="Amount (0 for all)"
+                              min="0"
+                              max={parseFloat(claimableRewards.token0)}
+                              step="0.01"
+                            />
+                          </Form.Group>
+                          <div className="d-flex gap-2">
+                            <Button 
+                              variant="success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token0.address, 'token0', rewardAmounts.token0)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token0) <= 0}
+                            >
+                              Claim
+                            </Button>
+                            <Button 
+                              variant="outline-success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token0.address, 'token0', claimableRewards.token0)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token0) <= 0}
+                            >
+                              Claim All
+                            </Button>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    <Col md={4}>
+                      <Card>
+                        <Card.Body>
+                          <Card.Title>BETA</Card.Title>
+                          <Card.Text>Available: {formatNumber(claimableRewards.token1)}</Card.Text>
+                          <Form.Group className="mb-3">
+                            <Form.Control
+                              type="number"
+                              value={rewardAmounts.token1}
+                              onChange={(e) => setRewardAmounts(prev => ({...prev, token1: e.target.value}))}
+                              placeholder="Amount (0 for all)"
+                              min="0"
+                              max={parseFloat(claimableRewards.token1)}
+                              step="0.01"
+                            />
+                          </Form.Group>
+                          <div className="d-flex gap-2">
+                            <Button 
+                              variant="success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token1.address, 'token1', rewardAmounts.token1)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token1) <= 0}
+                            >
+                              Claim
+                            </Button>
+                            <Button 
+                              variant="outline-success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token1.address, 'token1', claimableRewards.token1)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token1) <= 0}
+                            >
+                              Claim All
+                            </Button>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    <Col md={4}>
+                      <Card>
+                        <Card.Body>
+                          <Card.Title>GAMMA</Card.Title>
+                          <Card.Text>Available: {formatNumber(claimableRewards.token2)}</Card.Text>
+                          <Form.Group className="mb-3">
+                            <Form.Control
+                              type="number"
+                              value={rewardAmounts.token2}
+                              onChange={(e) => setRewardAmounts(prev => ({...prev, token2: e.target.value}))}
+                              placeholder="Amount (0 for all)"
+                              min="0"
+                              max={parseFloat(claimableRewards.token2)}
+                              step="0.01"
+                            />
+                          </Form.Group>
+                          <div className="d-flex gap-2">
+                            <Button 
+                              variant="success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token2.address, 'token2', rewardAmounts.token2)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token2) <= 0}
+                            >
+                              Claim
+                            </Button>
+                            <Button 
+                              variant="outline-success" 
+                              size="sm"
+                              onClick={() => handleClaimRewards(contracts.token2.address, 'token2', claimableRewards.token2)}
+                              disabled={!isWalletConnected || parseFloat(claimableRewards.token2) <= 0}
+                            >
+                              Claim All
+                            </Button>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  </Row>
+                  <div className="mt-3 small text-muted">
+                    Note: LP rewards are your share of trading fees collected from swaps. Enter amount to claim or leave empty to claim all available rewards.
+                  </div>
+                </Card.Body>
+              </Card>
             </Tab>
           </Tabs>
         </Card.Body>
