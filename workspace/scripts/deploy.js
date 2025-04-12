@@ -34,7 +34,7 @@ async function main() {
   await factory.waitForDeployment();
   console.log("Factory deployed to:", await factory.getAddress());
 
-  // 使用Factory创建带有三个代币的Pool
+  // 使用Factory创建带有三个代币的Poolb
   const addresses_token = [
     await token0.getAddress(),
     await token1.getAddress(),

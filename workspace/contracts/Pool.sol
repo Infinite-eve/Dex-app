@@ -177,7 +177,6 @@ contract Pool is LPToken, ReentrancyGuard {
         // 为了避免溢出，我们先将每个数除以一个合适的因子
         uint256[] memory scaledValues = new uint256[](values.length);
         for (uint256 i = 0; i < values.length; i++) {
-            // 将每个数除以1e18，因为输入的数字都是以wei为单位的
             scaledValues[i] = values[i] / 1e18;
             require(scaledValues[i] > 0, "Value too small after scaling");
         }
@@ -248,10 +247,10 @@ contract Pool is LPToken, ReentrancyGuard {
         if (totalSupply() > 0) {
             uint256[] memory ratios = new uint256[](amounts.length);
             for (uint i = 0; i < amounts.length; i++) {
-                ratios[i] = (amounts[i] * 1e18) / tokenBalances[i_tokens_addresses[i]];
+                ratios[i] = (amounts[i]) / tokenBalances[i_tokens_addresses[i]];
             }
             uint256 minRatio = findMin(ratios);
-            amountLP = (minRatio * totalSupply()) / 1e18;
+            amountLP = (minRatio * totalSupply()) ;
         } else {
             // 首次添加流动性，使用几何平均数
             amountLP = geometricMean(amounts);
@@ -285,7 +284,7 @@ contract Pool is LPToken, ReentrancyGuard {
         require(balanceOf(msg.sender) >= lpTokenAmount, "Insufficient LP token balance");
 
         // 计算提取比例
-        uint256 ratio = (lpTokenAmount * 1e18) / totalSupply();
+        uint256 ratio = (lpTokenAmount) / totalSupply();
         
         // 按比例提取所有代币
         uint256 length = i_tokens_addresses.length;
@@ -293,7 +292,7 @@ contract Pool is LPToken, ReentrancyGuard {
         
         for (uint256 i = 0; i < length; i++) {
             address tokenAddr = i_tokens_addresses[i];
-            uint256 amount = (tokenBalances[tokenAddr] * ratio) / 1e18;
+            uint256 amount = (tokenBalances[tokenAddr] * ratio);
             withdrawAmounts[i] = amount;
             tokenBalances[tokenAddr] -= amount;
             require(

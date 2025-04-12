@@ -131,7 +131,6 @@ function App() {
   const handleToken0AmountChange = async (e) => {
     const value = e.target.value;
     setToken0Amount(value);
-
     if (value && !isNaN(value)) {
       const [token1Amount, token2Amount] = await calculateTokenAmounts(value);
       setToken1Amount(token1Amount);
@@ -150,9 +149,22 @@ function App() {
       console.log(amount0);
       const result = await getRequiredAmounts(contracts, amount0);
       const subArray = result.slice(1);
-      console.log(subArray.map(item => ethers.formatEther(item)));
+      console.log(subArray);
+      return subArray.map(item => {
+        // 检查是否是 BigNumber 类型
+        if (item && typeof item === 'object' && 'toBigInt' in item) {
+          return ethers.formatEther(item);
+        }
+        // 如果 item 是数字或字符串，先转换为 BigNumber
+        try {
+          const bigNumber = ethers.parseUnits(item.toString(), 18);
 
-      return subArray.map(item => ethers.formatEther(item));
+          return ethers.formatEther(bigNumber);
+        } catch (error) {
+          console.error("Error formatting number:", error);
+          return "0";
+        }
+      });
     } catch (error) {
       console.error("Error calculating token amounts:", error);
       return ['0', '0'];
@@ -237,7 +249,7 @@ function App() {
 
       // 计算手续费
       const fee = parseFloat(fromAmount) * 0.003;
-
+      console.log(fee)
       await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
 
       // 更新所有信息
@@ -258,9 +270,9 @@ function App() {
       }
 
       const amounts_list = [
-        ethers.parseEther(token0Amount.toString()),
-        ethers.parseEther(token1Amount.toString()),
-        ethers.parseEther(token2Amount.toString())
+        token0Amount,
+        token1Amount,
+        token2Amount
       ];
 
       const addresses_token = [
@@ -291,8 +303,7 @@ function App() {
         throw new Error("Please enter valid LP token amount");
       }
 
-      const lpTokenAmountWei = ethers.parseEther(formatNumber(lpTokenAmount));
-      await withdrawLiquidity(contracts, lpTokenAmountWei);
+      await withdrawLiquidity(contracts, lpTokenAmount);
 
       // 清空输入框
       setLpTokenAmount('');
@@ -307,7 +318,6 @@ function App() {
     }
   };
 
-  // 修改处理函数，接受数量参数
   const handleClaimRewards = async (tokenAddress, tokenKey, amount) => {
     try {
       if (!contracts || !account) return;
@@ -315,7 +325,7 @@ function App() {
       // 如果没有提供数量或数量为0，则使用全部可用数量
       const claimAmount = !amount || amount === '' 
         ? 0  // 在合约中 0 表示提取全部
-        : ethers.parseEther(amount.toString());
+        : amount;
       
       // 调用修改后的合约函数
       await claimLpIncentives(contracts, tokenAddress, claimAmount);

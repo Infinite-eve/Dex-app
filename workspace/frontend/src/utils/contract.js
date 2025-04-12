@@ -125,89 +125,82 @@ export const getAmountOut = async (contracts, tokenIn, amountIn, tokenOut) => {
         console.error("Error in getAmountOut:", error);
         throw error;
     }
-  };
+};
 
 export const getRequiredAmounts = async (contracts, amount0) => {
-  try {
-      const amount0Wei = ethers.parseEther(amount0.toString());
-      const res = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
-      
-      // 正确处理返回值：将每个BigInt转换为字符串
-      const formattedAmounts = [];
-      for (let i = 0; i < res.length; i++) {
-          formattedAmounts.push(ethers.formatEther(res[i]));
-      }
-      
-      return formattedAmounts;
-  } catch (error) {
-      console.error("Error in getRequiredAmounts:", error);
-      throw error;
-  }
+    try {
+        const amount0Wei = ethers.parseEther(amount0.toString());
+        const res = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
+        
+        // 将每个 BigInt 转换为正常数
+        const formattedAmounts = [];
+        for (let i = 0; i < res.length; i++) {
+            formattedAmounts.push(ethers.formatEther(res[i]));
+        }
+        
+        return formattedAmounts;
+    } catch (error) {
+        console.error("Error in getRequiredAmounts:", error);
+        throw error;
+    }
 };
 
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
-  try {
-      const amountInWei = ethers.parseEther(amountIn.toString());
-      
-      // Map token names to contract objects
-      const tokenInAddress = contracts[tokenIn].address;
-      const tokenOutAddress = contracts[tokenOut].address;
-      
-      // Approve tokenIn
-      const tokenInContract = contracts[tokenIn].contract;
-      await tokenInContract.approve(contracts.pool.address, amountInWei);
-      
-      // Execute swap
-      const tx = await contracts.pool.contract.swap(
-          tokenInAddress,
-          amountInWei,
-          tokenOutAddress
-      );
-      await tx.wait();
-      return tx;
-  } catch (error) {
-      console.error("Error in swapTokens:", error);
-      throw error;
-  }
+    try {
+        const amountInWei = ethers.parseEther(amountIn.toString());
+        
+        // Map token names to contract objects
+        const tokenInAddress = contracts[tokenIn].address;
+        const tokenOutAddress = contracts[tokenOut].address;
+        
+        // Approve tokenIn
+        const tokenInContract = contracts[tokenIn].contract;
+        await tokenInContract.approve(contracts.pool.address, amountInWei);
+        
+        // Execute swap
+        const tx = await contracts.pool.contract.swap(
+            tokenInAddress,
+            amountInWei,
+            tokenOutAddress
+        );
+        await tx.wait();
+        return tx;
+    } catch (error) {
+        console.error("Error in swapTokens:", error);
+        throw error;
+    }
 };
 
 export const addLiquidity = async (contracts, addresses_token, amounts_list) => {
-  try {
-    //   const amount0Wei = ethers.parseEther(amount0.toString());
-      
-      // Get required amounts of token1 and token2
-      // get the key: address and value: amount
-    //   const [amount1Wei, amount2Wei] = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
-      
-      // Approve all tokens
-    //   console.log(amounts_list);
-
-
-      await contracts.token0.contract.approve(contracts.pool.address, amounts_list[0] );
-      await contracts.token1.contract.approve(contracts.pool.address, amounts_list[1] );
-      await contracts.token2.contract.approve(contracts.pool.address, amounts_list[2] );
-      
-    
-      const tx = await contracts.pool.contract.addLiquidity(addresses_token, amounts_list);
-      await tx.wait();
-      return tx;
-  } catch (error) {
-      console.error("Error in addLiquidity:", error);
-      throw error;
-  }
+    try {
+        // 将输入的金额列表转换为 wei 单位
+        const amountsWei = amounts_list.map(amount => ethers.parseEther(amount.toString()));
+        
+        // Approve all tokens
+        await contracts.token0.contract.approve(contracts.pool.address, amountsWei[0]);
+        await contracts.token1.contract.approve(contracts.pool.address, amountsWei[1]);
+        await contracts.token2.contract.approve(contracts.pool.address, amountsWei[2]);
+        
+        const tx = await contracts.pool.contract.addLiquidity(addresses_token, amountsWei);
+        await tx.wait();
+        return tx;
+    } catch (error) {
+        console.error("Error in addLiquidity:", error);
+        throw error;
+    }
 };
 
 // 取流动性
 export const withdrawLiquidity = async (contracts, lpTokenAmount) => {
-  try {
-    // Withdraw liquidity
-    const tx = await contracts.pool.contract.withdrawLiquidity(lpTokenAmount);
-    await tx.wait();
-    return tx;
-  } catch (error) {
-    console.error("Error in withdrawLiquidity:", error);
-    throw error;
-  }
+    try {
+        const lpTokenAmountWei = ethers.parseEther(lpTokenAmount.toString());
+        const tx = await contracts.pool.contract.withdrawLiquidity(lpTokenAmountWei);
+        await tx.wait();
+        return tx;
+    } catch (error) {
+        console.error("Error in withdrawLiquidity:", error);
+        throw error;
+    }
 };
 
 // 获取LP token信息
@@ -246,7 +239,7 @@ export const getPoolFees = async (contracts) => {
     const token0Fee = await contracts.pool.contract.lpFee(contracts.token0.address);
     const token1Fee = await contracts.pool.contract.lpFee(contracts.token1.address);
     const token2Fee = await contracts.pool.contract.lpFee(contracts.token2.address);
-    
+    console.log(token0Fee,token1Fee,token2Fee)
     return {
       token0Fee: ethers.formatEther(token0Fee),
       token1Fee: ethers.formatEther(token1Fee),
