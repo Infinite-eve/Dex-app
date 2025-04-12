@@ -36,6 +36,9 @@ function App() {
   const [poolList, setPoolList] = useState([]);
   const [selectedPoolId, setSelectedPoolId] = useState('pool1');
 
+  // 添加新的状态变量
+  const [rewardAmounts, setRewardAmounts] = useState({ token0: '', token1: '', token2: '' });
+
   /* balance related */
   const [balance0, setBalance0] = useState(0);
   const [balance1, setBalance1] = useState(0);
@@ -66,28 +69,26 @@ function App() {
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
 
-  /*获取poollist*/
-  // const PoolList = () => {
-  //   return (
-  //     <div>
-  //       {pools.map((pool) => (
-  //         <div key={pool.id} className="pool-card">
-  //           <h3>Pool #{pool.id}: {pool.pair}</h3>
-  //           <div>
-  //             <p><strong>Token0 Balance:</strong> {pool.token0Balance}</p>
-  //             <p><strong>Token1 Balance:</strong> {pool.token1Balance}</p>
-  //             <p><strong>Total LP Tokens:</strong> {pool.totalLPToken}</p>
-  //             <p><strong>Fee:</strong> {pool.fee}</p>
-  //           </div>
-  //           <div>
-  //             <p><strong>Your LP Tokens:</strong> {pool.userLPToken}</p>
-  //             <p><strong>Your Total Value:</strong> ${pool.userValue}</p>
-  //           </div>
-  //         </div>
-  //       ))}
-  //     </div>
-  //   );
-  // };
+  // Function to handle pool selection
+  const handlePoolSelect = async (poolId) => {
+    if (poolId === selectedPoolId) return;
+    
+    setSelectedPoolId(poolId);
+    
+    // Reset amounts
+    setFromAmount('');
+    setToAmount('');
+    setLpTokenAmount('');
+    
+    // If already connected, update contracts for the new pool
+    if (isWalletConnected && provider) {
+      const signer = await provider.getSigner();
+      const newContracts = await getContracts(signer, poolId);
+      setContracts(newContracts);
+      await updatePoolAndBalances(newContracts);
+    }
+  };
+
 
   // switch token button
   const handleTokenSwitch = () => {
@@ -165,8 +166,8 @@ function App() {
     }
   };
 
-  const updatePoolAndBalances = async () => {
-    if (!contracts || !account) return;
+  const updatePoolAndBalances = async (currentContracts) => {
+    if (!currentContracts || !account) return;
     
     // 获取用户代币余额
     const balances = await getTokenBalances(currentContracts, account);
