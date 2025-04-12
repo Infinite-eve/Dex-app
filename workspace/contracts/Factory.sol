@@ -69,6 +69,16 @@ contract Factory is Ownable {
     function getPoolKey(address[] memory tokens) public pure returns (bytes32) {
         return keccak256(abi.encodePacked((tokens)));
     }
+    
+    // 获取支持的代币数量
+    function getSupportedTokensCount() external view returns (uint256) {
+        return supportedTokens.length;
+    }
+    
+    // 获取所有支持的代币
+    function getAllSupportedTokens() external view returns (address[] memory) {
+        return supportedTokens;
+    }
 
     // 内部函数：代币排序（使用插入排序）
     function _sortTokens(address[] memory tokens) internal pure returns (address[] memory) {
