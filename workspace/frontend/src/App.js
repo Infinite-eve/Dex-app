@@ -69,6 +69,31 @@ function App() {
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
 
+  // Effect to fetch available pools when component loads
+  useEffect(() => {
+    const pools = getAvailablePools();
+    setPoolList(pools);
+  }, []);
+
+  // Effect to update token selection when selected pool changes
+  useEffect(() => {
+    if (contracts && contracts.tokensInPool) {
+      setAvailableTokensInPool(contracts.tokensInPool);
+      // Reset token selections to valid values for this pool
+      if (contracts.tokensInPool.length >= 2) {
+        setFromToken(contracts.tokensInPool[0]);
+        setToToken(contracts.tokensInPool[1]);
+      }
+      
+      // Reset liquidity amounts
+      const newLiquidityAmounts = {};
+      contracts.tokensInPool.forEach(token => {
+        newLiquidityAmounts[token] = '';
+      });
+      setLiquidityAmounts(newLiquidityAmounts);
+    }
+  }, [contracts]);
+
   // Function to handle pool selection
   const handlePoolSelect = async (poolId) => {
     if (poolId === selectedPoolId) return;
@@ -129,14 +154,32 @@ function App() {
     }
   };
 
-  const handleLiquidityAmountChange = (tokenKey, value) => {
-    setLiquidityAmounts({
-      ...liquidityAmounts,
-      [tokenKey]: value
-    });
+  const handleLiquidityAmountChange = async (tokenKey, value) => {
+    // 只处理第一个代币的输入
+    if (tokenKey === contracts.tokensInPool[0]) {
+      setLiquidityAmounts({
+        ...liquidityAmounts,
+        [tokenKey]: value
+      });
+
+      // 如果有输入值，计算其他代币的数量
+      if (value && !isNaN(value)) {
+        const otherAmounts = await calculateTokenAmounts(contracts, value);
+        const newAmounts = { ...liquidityAmounts };
+        newAmounts[tokenKey] = value;
+        
+        // 更新其他代币的数量，并格式化为2位小数
+        contracts.tokensInPool.slice(1).forEach((token, index) => {
+          const amount = parseFloat(otherAmounts[index]);
+          newAmounts[token] = isNaN(amount) ? '0.00' : amount.toFixed(2);
+        });
+        
+        setLiquidityAmounts(newAmounts);
+      }
+    }
   };
 
-  const calculateTokenAmounts = async (amount0) => {
+  const calculateTokenAmounts = async (contracts, amount0) => {
     if (!amount0 || !contracts || isNaN(amount0) || amount0 <= 0) {
       return ['0', '0'];
     }
@@ -166,9 +209,16 @@ function App() {
     }
   };
 
+
+
   const updatePoolAndBalances = async (currentContracts) => {
-    if (!currentContracts || !account) return;
-    
+
+    // 
+    if (!currentContracts) {
+      const signer = await provider.getSigner();
+      currentContracts = await getContracts(signer, selectedPoolId);
+    }
+    console.log("selectedPoolId:",selectedPoolId)
     // 获取用户代币余额
     const balances = await getTokenBalances(currentContracts, account);
     setBalance0(balances.token0);
@@ -184,11 +234,11 @@ function App() {
     setLpInfo(lpTokenInfo);
     
     // 获取累积手续费
-    const fees = await getPoolFees(contracts);
+    const fees = await getPoolFees(currentContracts);
     setPoolFees(fees);
     
     // 获取用户可领取的奖励
-    const rewards = await getClaimableRewards(contracts, account);
+    const rewards = await getClaimableRewards(currentContracts, account);
     setClaimableRewards(rewards);
   };
 
@@ -239,12 +289,13 @@ function App() {
     try {
       if (!contracts) return;
 
-      const tokenIn = fromToken === 'ALPHA' ? 'token0' : (fromToken === 'BETA' ? 'token1' : 'token2');
-      const tokenOut = toToken === 'ALPHA' ? 'token0' : (toToken === 'BETA' ? 'token1' : 'token2');
+      const tokenIn = fromToken;
+      const tokenOut = toToken;
 
       // 计算手续费
       const fee = parseFloat(fromAmount) * 0.003;
-      console.log(fee)
+      console.log(tokenIn,fromAmount,tokenOut,fee)
+      console.log(fromToken,toToken)
       await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
 
       // 更新所有信息
@@ -453,9 +504,9 @@ function App() {
           <Card className="h-100">
             <Card.Body>
               <Card.Title className="Card-title">Balances</Card.Title>
-              <Card.Text>ALPHA：{formatNumber(balance0)} </Card.Text>
-              <Card.Text>BETA： {formatNumber(balance1)} </Card.Text>
-              <Card.Text>GAMMA： {formatNumber(balance2)} </Card.Text>
+              <Card.Text>ALPHA: {formatNumber(balance0)} </Card.Text>
+              <Card.Text>BETA: {formatNumber(balance1)} </Card.Text>
+              <Card.Text>GAMMA: {formatNumber(balance2)} </Card.Text>
             </Card.Body>
           </Card>
         </Col>
@@ -493,7 +544,11 @@ function App() {
                     <td>{contracts?.tokensInPool?.includes("token2") ? formatNumber(poolInfo.token2Balance) : "-"}</td>
                     <td>{formatNumber(lpInfo.totalSupply)}</td>
                     <td>0.3%</td>
-                    <td>暂无</td>
+                    <td>
+                        <div>ALPHA: {formatNumber(poolFees.token0Fee)}</div>
+                        <div>BETA: {formatNumber(poolFees.token1Fee)}</div>
+                        <div>GAMMA: {formatNumber(poolFees.token2Fee)}</div>
+                        </td>
                     <td>{formatNumber(lpInfo.userBalance)}</td>
                     <td>{lpInfo.percentage}%</td>
                   </tr>
@@ -600,6 +655,8 @@ function App() {
                       onChange={(e) => handleLiquidityAmountChange(tokenKey, e.target.value)}
                       placeholder="0.00"
                       step="0.01"
+                      readOnly={index !== 0} // 只有第一个代币可以输入
+                      className={index !== 0 ? "bg-light" : ""} // 非输入框使用浅色背景
                     />
                   </Form.Group>
                 ))}

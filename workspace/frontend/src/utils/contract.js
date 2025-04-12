@@ -199,7 +199,7 @@ export const getRequiredAmounts = async (contracts, amount0) => {
 export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
       const amountInWei = ethers.parseEther(amountIn.toString());
-      
+      console.log(amountInWei)
       // Get token addresses from mapping
       const tokenInAddress = contracts.tokenMapping[tokenIn].address;
       const tokenOutAddress = contracts.tokenMapping[tokenOut].address;
@@ -299,7 +299,7 @@ export const getPoolFees = async (contracts) => {
     const token0Fee = await contracts.pool.contract.lpFee(contracts.token0.address);
     const token1Fee = await contracts.pool.contract.lpFee(contracts.token1.address);
     const token2Fee = await contracts.pool.contract.lpFee(contracts.token2.address);
-    console.log(token0Fee,token1Fee,token2Fee)
+    console.log("fee:", token0Fee,token1Fee,token2Fee)
     return {
       token0Fee: ethers.formatEther(token0Fee),
       token1Fee: ethers.formatEther(token1Fee),

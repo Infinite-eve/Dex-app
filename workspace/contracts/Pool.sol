@@ -189,8 +189,6 @@ contract Pool is LPToken, ReentrancyGuard {
     //amount0是添加的token0数量
     function getRequiredAmounts(uint256 amount0) public view returns (uint256[] memory) {
         
-        // todo: infinite-zhou 改为根据数组
-        
         uint256 length = i_tokens_addresses.length;
         uint256[] memory return_amount = new uint256[](length);
         uint256 balance0 = tokenBalances[i_tokens_addresses[0]];
@@ -210,7 +208,6 @@ contract Pool is LPToken, ReentrancyGuard {
         }
         return_amount[0] = amount0;
         return return_amount;
-
     }
 
     // 计算几何平均数
