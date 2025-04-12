@@ -83,6 +83,11 @@ async function main() {
   );
   console.log("Pool 3 (Beta-Gamma) deployed to:", pool3Address);
 
+  const Router = await hre.ethers.getContractFactory("Router");
+  const router = await Router.deploy(await factory.getAddress());
+  await router.waitForDeployment();
+  console.log("Router deployed to:", await router.getAddress());
+
   // Create utils directory if it doesn't exist
   const utilsPath = path.join(__dirname, "../frontend/src/utils");
   if (!fs.existsSync(utilsPath)) {
@@ -111,7 +116,8 @@ async function main() {
         pair: "BETA-GAMMA"
       }
     },
-    factory: await factory.getAddress()
+    factory: await factory.getAddress(),
+    router: await router.getAddress()
   };
 
   // Write data to the file (creates the file if it doesn't exist)
@@ -124,7 +130,8 @@ async function main() {
     NewToken: await hre.artifacts.readArtifact("NewToken"),
     LPToken: await hre.artifacts.readArtifact("LPToken"),
     Pool: await hre.artifacts.readArtifact("Pool"),
-    Factory: await hre.artifacts.readArtifact("Factory")
+    Factory: await hre.artifacts.readArtifact("Factory"),
+    Router: await hre.artifacts.readArtifact("Router")
   };
 
   const abis = {
@@ -132,6 +139,7 @@ async function main() {
     LPToken: artifacts.LPToken.abi,
     Pool: artifacts.Pool.abi,
     Factory: artifacts.Factory.abi,
+    Router: artifacts.Router.abi,
   };
 
   // Write data to the file (creates the file if it doesn't exist)
