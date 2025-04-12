@@ -2,6 +2,32 @@
   "token0": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "token1": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
   "token2": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-  "pool": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
+  "pools": {
+    "pool1": {
+      "address": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
+      "tokens": [
+        "Alpha",
+        "Beta",
+        "Gamma"
+      ],
+      "pair": "ALPHA-BETA-GAMMA"
+    },
+    "pool2": {
+      "address": "0x6D544390Eb535d61e196c87d6B9c80dCD8628Acd",
+      "tokens": [
+        "Alpha",
+        "Beta"
+      ],
+      "pair": "ALPHA-BETA"
+    },
+    "pool3": {
+      "address": "0xB1eDe3F5AC8654124Cb5124aDf0Fd3885CbDD1F7",
+      "tokens": [
+        "Beta",
+        "Gamma"
+      ],
+      "pair": "BETA-GAMMA"
+    }
+  },
   "factory": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
 }
