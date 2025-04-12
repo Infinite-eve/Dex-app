@@ -154,23 +154,29 @@ function App() {
     }
   };
 
-  const handleLiquidityAmountChange = (tokenKey, value) => {
+  const handleLiquidityAmountChange = async (tokenKey, value) => {
+    // 只处理第一个代币的输入
+    if (tokenKey === contracts.tokensInPool[0]) {
+      setLiquidityAmounts({
+        ...liquidityAmounts,
+        [tokenKey]: value
+      });
 
-    // const value = value;
-    setToken0Amount(value);
-
-    if (value && !isNaN(value)) {
-      const [token1Amount, token2Amount] = calculateTokenAmounts(value);
-      setToken1Amount(token1Amount);
-      setToken2Amount(token2Amount);
-    } else {
-      setToken1Amount('');
-      setToken2Amount('');
+      // 如果有输入值，计算其他代币的数量
+      if (value && !isNaN(value)) {
+        const otherAmounts = await calculateTokenAmounts(contracts, value);
+        const newAmounts = { ...liquidityAmounts };
+        newAmounts[tokenKey] = value;
+        
+        // 更新其他代币的数量，并格式化为2位小数
+        contracts.tokensInPool.slice(1).forEach((token, index) => {
+          const amount = parseFloat(otherAmounts[index]);
+          newAmounts[token] = isNaN(amount) ? '0.00' : amount.toFixed(2);
+        });
+        
+        setLiquidityAmounts(newAmounts);
+      }
     }
-    setLiquidityAmounts({
-      ...liquidityAmounts,
-      [tokenKey]: value
-    });
   };
 
   const calculateTokenAmounts = async (contracts, amount0) => {
@@ -649,6 +655,8 @@ function App() {
                       onChange={(e) => handleLiquidityAmountChange(tokenKey, e.target.value)}
                       placeholder="0.00"
                       step="0.01"
+                      readOnly={index !== 0} // 只有第一个代币可以输入
+                      className={index !== 0 ? "bg-light" : ""} // 非输入框使用浅色背景
                     />
                   </Form.Group>
                 ))}
