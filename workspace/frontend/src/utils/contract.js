@@ -182,13 +182,14 @@ export const getRequiredAmounts = async (contracts, amount0) => {
     try {
         const amount0Wei = ethers.parseEther(amount0.toString());
         const res = await contracts.pool.contract.getRequiredAmounts(amount0Wei);
-        
+        console.log(contracts)
+        console.log("res:",res);
         // 将每个 BigInt 转换为正常数
         const formattedAmounts = [];
         for (let i = 0; i < res.length; i++) {
             formattedAmounts.push(ethers.formatEther(res[i]));
         }
-        
+        console.log("formattedAmounts:",formattedAmounts);
         return formattedAmounts;
     } catch (error) {
         console.error("Error in getRequiredAmounts:", error);

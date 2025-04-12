@@ -19,17 +19,17 @@ contract Factory {
         require(_noZeroAddress(tokens), "Zero address");
 
         // 生成排序后的代币数组
-        address[] memory sortedTokens = _sortTokens(tokens);
+        // address[] memory sortedTokens = tokens;
         
         // 生成唯一哈希键
-        bytes32 poolKey = keccak256(abi.encodePacked(sortedTokens));
+        bytes32 poolKey = keccak256(abi.encodePacked(tokens));
         require(pools[poolKey] == address(0), "Pool exists");
         // 创建新池
-        address pool = address(new Pool(sortedTokens));
+        address pool = address(new Pool(tokens));
         pools[poolKey] = pool;
 
         // 维护支持的代币列表
-        _updateSupportedTokens(sortedTokens);
+        _updateSupportedTokens(tokens);
 
         emit PoolCreated(tokens);
         return pool;
@@ -43,7 +43,7 @@ contract Factory {
 
     // 获取排序后的池哈希键
     function getPoolKey(address[] memory tokens) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_sortTokens(tokens)));
+        return keccak256(abi.encodePacked((tokens)));
     }
 
     // 内部函数：代币排序（使用插入排序）
