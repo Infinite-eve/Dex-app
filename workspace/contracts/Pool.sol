@@ -24,16 +24,17 @@ contract Pool is LPToken, ReentrancyGuard {
     address public  factory;
 
     //初始比例为1:2:3，即1个token0需要2个token1和3个token2
-    //可以修改初始比例
-    // todo & fixme:@infinite-zhou, 更改为可变比率
-    // uint256 constant INITIAL_RATIO_1 = 2; //token0:token1 = 1:2
-    // uint256 constant INITIAL_RATIO_2 = 3; //token0:token2 = 1:3
     uint256[] public  INITIAL_RATIO = [1, 2,3];
     
     //tokenBalances是一个映射，用于存储每个代币的余额
     //key是代币地址，value是代币余额
     mapping(address => uint256) public tokenBalances;
-    
+
+    // 费用相关变量
+    uint256 public constant FEE_DENOMINATOR = 10000;
+    uint256 public tradingFee = 30; // 0.3%
+    mapping(address => uint256) public lpFee; // 单独存储交易费用
+    mapping(address => uint256) public liquidityProviderIncentives; // LP激励池
 
     //事件用于记录流动性池中的代币添加和交换操作
     event AddedLiquidity(
@@ -53,6 +54,12 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 indexed amountOut
     );
 
+    event IncentiveDistributed(
+        address indexed recipient,
+        uint256 amount,
+        string incentiveType
+    );
+
     //构造函数，用于初始化流动性池
     //token0, token1和token2是流动性池中的三种代币
     //LPToken是用于表示流动性池中代币份额的代币
@@ -69,8 +76,9 @@ contract Pool is LPToken, ReentrancyGuard {
             // 或者调用代币合约
             i_tokens[i] = (IERC20(token_add));
             i_tokens_addresses[i] = (token_add);
-            i_tokens_map[token_add] = i;
+            i_tokens_map[token_add] = i + 1;  // 从 1 开始索引
             tokenBalances[token_add] = 0;
+            lpFee[token_add] = 0; // 初始化 lpFee
         }
     }
 
@@ -91,9 +99,13 @@ contract Pool is LPToken, ReentrancyGuard {
         
         require(balanceIn > 0 && balanceOut > 0, "Insufficient liquidity");
         
+        // 计算交易费用
+        uint256 fee = (amountIn * tradingFee) / FEE_DENOMINATOR;
+        uint256 amountInAfterFee = amountIn - fee;
+
         // 对于三种代币的流动性池，我们仍然使用恒定乘积公式，但只针对交易涉及的两种代币
         // 保持交易对的交易逻辑不变
-        uint256 amountOut = (balanceOut * amountIn) / (balanceIn + amountIn);
+        uint256 amountOut = (balanceOut * amountInAfterFee) / (balanceIn + amountInAfterFee);
         require(amountOut > 0, "Zero output amount");
         require(amountOut <= balanceOut, "Insufficient output liquidity");
 
@@ -107,14 +119,19 @@ contract Pool is LPToken, ReentrancyGuard {
     ) public nonReentrant {
         // input validity checks
         require(tokenIn != tokenOut, "Same tokens");
-        require(i_tokens_map[tokenIn] < i_tokens_addresses.length, "tokenIn not in i_tokens_map");
-        require(i_tokens_map[tokenOut] < i_tokens_addresses.length, "tokenOut not in i_tokens_map");
+        require(i_tokens_map[tokenIn] > 0, "tokenIn not in pool");
+        require(i_tokens_map[tokenOut] > 0, "tokenOut not in pool");
         require(amountIn > 0, "Zero amount");
 
         // Check balances
         uint256 balanceOut = tokenBalances[tokenOut];
+        uint256 balanceIn = tokenBalances[tokenIn];
         require(balanceOut > 0, "Insufficient output token liquidity");
         
+        // 计算交易费用
+        uint256 fee = (amountIn * tradingFee) / FEE_DENOMINATOR;
+        uint256 amountInAfterFee = amountIn - fee;
+
         //getAmountOut函数计算代币兑换的输出数量
         uint256 amountOut = getAmountOut(tokenIn, amountIn, tokenOut);
         require(amountOut > 0, "Zero output amount");
@@ -125,16 +142,47 @@ contract Pool is LPToken, ReentrancyGuard {
             IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn),
             "Transfer tokenIn failed"
         );
+
+        // 将费用存入 lpFee
+        lpFee[tokenIn] += fee;
+
         require(
             IERC20(tokenOut).transfer(msg.sender, amountOut),
             "Transfer tokenOut failed"
         );
 
         // update pool balances
-        tokenBalances[tokenIn] += amountIn;
+        tokenBalances[tokenIn] += amountInAfterFee;
         tokenBalances[tokenOut] -= amountOut;
         
         emit Swapped(tokenIn, amountIn, tokenOut, amountOut);
+    }
+
+    function claimLpIncentives(address token) external {
+        require(i_tokens_map[token] != 0, "Token not in pool");
+        uint256 userLpShare = balanceOf(msg.sender);
+        require(userLpShare > 0, "No LP tokens owned");
+
+        uint256 totalLp = totalSupply();
+        uint256 incentiveAmount = (liquidityProviderIncentives[token] * userLpShare) / totalLp;
+
+        // 将 lpFee 中的费用分配给用户
+        uint256 feeShare = (lpFee[token] * userLpShare) / totalLp;
+
+        uint256 totalClaim = incentiveAmount + feeShare;
+        require(totalClaim > 0, "No incentives to claim");
+        
+        // 更新激励池和 lpFee
+        liquidityProviderIncentives[token] -= incentiveAmount;
+        lpFee[token] -= feeShare;
+
+        require(
+            IERC20(token).transfer(msg.sender, totalClaim),
+            "Incentive transfer failed"
+        );
+        tokenBalances[token] -= totalClaim;
+
+        emit IncentiveDistributed(msg.sender, totalClaim, "LP_REWARD_CLAIM");
     }
 
     //计算添加流动性所需的token1和token2数量
@@ -177,7 +225,6 @@ contract Pool is LPToken, ReentrancyGuard {
         // 为了避免溢出，我们先将每个数除以一个合适的因子
         uint256[] memory scaledValues = new uint256[](values.length);
         for (uint256 i = 0; i < values.length; i++) {
-            // 将每个数除以1e18，因为输入的数字都是以wei为单位的
             scaledValues[i] = values[i] / 1e18;
             require(scaledValues[i] > 0, "Value too small after scaling");
         }
@@ -248,10 +295,10 @@ contract Pool is LPToken, ReentrancyGuard {
         if (totalSupply() > 0) {
             uint256[] memory ratios = new uint256[](amounts.length);
             for (uint i = 0; i < amounts.length; i++) {
-                ratios[i] = (amounts[i] * 1e18) / tokenBalances[i_tokens_addresses[i]];
+                ratios[i] = (amounts[i]) / tokenBalances[i_tokens_addresses[i]];
             }
             uint256 minRatio = findMin(ratios);
-            amountLP = (minRatio * totalSupply()) / 1e18;
+            amountLP = (minRatio * totalSupply()) ;
         } else {
             // 首次添加流动性，使用几何平均数
             amountLP = geometricMean(amounts);
@@ -264,7 +311,7 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 length = token_add.length;
         for (uint256 i = 0; i < length; i++) {
             address i_token_addr = token_add[i];
-            uint index = i_tokens_map[i_token_addr];
+            uint index = i_tokens_map[i_token_addr] - 1;  // 减 1 得到实际索引
             IERC20 i_token = i_tokens[index];
 
             require(
@@ -285,7 +332,7 @@ contract Pool is LPToken, ReentrancyGuard {
         require(balanceOf(msg.sender) >= lpTokenAmount, "Insufficient LP token balance");
 
         // 计算提取比例
-        uint256 ratio = (lpTokenAmount * 1e18) / totalSupply();
+        uint256 ratio = (lpTokenAmount) / totalSupply();
         
         // 按比例提取所有代币
         uint256 length = i_tokens_addresses.length;
@@ -293,7 +340,7 @@ contract Pool is LPToken, ReentrancyGuard {
         
         for (uint256 i = 0; i < length; i++) {
             address tokenAddr = i_tokens_addresses[i];
-            uint256 amount = (tokenBalances[tokenAddr] * ratio) / 1e18;
+            uint256 amount = (tokenBalances[tokenAddr] * ratio);
             withdrawAmounts[i] = amount;
             tokenBalances[tokenAddr] -= amount;
             require(
@@ -309,5 +356,12 @@ contract Pool is LPToken, ReentrancyGuard {
             i_tokens_addresses,
             withdrawAmounts
         );
+    }
+
+    // 设置交易费率（仅允许合约所有者调用）
+    function setTradingFee(uint256 _tradingFee) external {
+        require(msg.sender == factory, "Only factory can set trading fee");
+        require(_tradingFee <= 100, "Fee too high"); // 限制最高费率为 1%
+        tradingFee = _tradingFee;
     }
 }
