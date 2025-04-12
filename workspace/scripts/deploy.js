@@ -34,22 +34,54 @@ async function main() {
   await factory.waitForDeployment();
   console.log("Factory deployed to:", await factory.getAddress());
 
-  // 使用Factory创建带有三个代币的Poolb
-  const addresses_token = [
+  // 使用Factory创建带有三个代币的Pool
+  const addresses_token_pool1 = [
     await token0.getAddress(),
     await token1.getAddress(),
     await token2.getAddress()
-  ]
-  const tx = await factory.createPool(
-    addresses_token
+  ];
+  const tx1 = await factory.createPool(
+    addresses_token_pool1
   );
-  await tx.wait();
+  await tx1.wait();
   
   // 获取创建的池子地址
-  const poolAddress = await factory.getPool(
-    addresses_token
+  const pool1Address = await factory.getPool(
+    addresses_token_pool1
   );
-  console.log("Pool deployed to:", poolAddress);
+  console.log("Pool 1 (Alpha-Beta-Gamma) deployed to:", pool1Address);
+
+  // 创建第二个池子 (Alpha-Beta)
+  const addresses_token_pool2 = [
+    await token0.getAddress(),
+    await token1.getAddress()
+  ];
+  const tx2 = await factory.createPool(
+    addresses_token_pool2
+  );
+  await tx2.wait();
+  
+  // 获取创建的池子地址
+  const pool2Address = await factory.getPool(
+    addresses_token_pool2
+  );
+  console.log("Pool 2 (Alpha-Beta) deployed to:", pool2Address);
+
+  // 创建第三个池子 (Beta-Gamma)
+  const addresses_token_pool3 = [
+    await token1.getAddress(),
+    await token2.getAddress()
+  ];
+  const tx3 = await factory.createPool(
+    addresses_token_pool3
+  );
+  await tx3.wait();
+  
+  // 获取创建的池子地址
+  const pool3Address = await factory.getPool(
+    addresses_token_pool3
+  );
+  console.log("Pool 3 (Beta-Gamma) deployed to:", pool3Address);
 
   // Create utils directory if it doesn't exist
   const utilsPath = path.join(__dirname, "../frontend/src/utils");
@@ -62,7 +94,23 @@ async function main() {
     token0: await token0.getAddress(),
     token1: await token1.getAddress(),
     token2: await token2.getAddress(),
-    pool: poolAddress,
+    pools: {
+      pool1: {
+        address: pool1Address,
+        tokens: ["Alpha", "Beta", "Gamma"],
+        pair: "ALPHA-BETA-GAMMA"
+      },
+      pool2: {
+        address: pool2Address,
+        tokens: ["Alpha", "Beta"],
+        pair: "ALPHA-BETA"
+      }, 
+      pool3: {
+        address: pool3Address,
+        tokens: ["Beta", "Gamma"],
+        pair: "BETA-GAMMA"
+      }
+    },
     factory: await factory.getAddress()
   };
 

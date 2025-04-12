@@ -4,12 +4,12 @@ import './App.css';
 
 /* User Interface */
 import Logo from "./assets/icons/currency-exchange.svg"
-import { Card, Tabs, Tab, Row, Col, Form, Button,Container, Badge,Table} from 'react-bootstrap';
+import { Card, Tabs, Tab, Row, Col, Form, Button, Container, Badge, Table, Dropdown } from 'react-bootstrap';
 
 /* Interaction with Backend */
-import { React, useState } from 'react';
+import { React, useState, useEffect } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getPoolFees, getClaimableRewards, claimLpIncentives } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
@@ -31,6 +31,10 @@ function App() {
   const [account, setAccount] = useState(null);
   const [contracts, setContracts] = useState(null);
   const [provider, setProvider] = useState(null);
+  
+  /* pool related */
+  const [poolList, setPoolList] = useState([]);
+  const [selectedPoolId, setSelectedPoolId] = useState('pool1');
 
   /* balance related */
   const [balance0, setBalance0] = useState(0);
@@ -42,22 +46,22 @@ function App() {
   const [claimableRewards, setClaimableRewards] = useState({ token0: '0', token1: '0', token2: '0' });
 
   /* swap related */
-  // todo: @infinite-zhou 确定一下useState是不是
-  const [fromToken, setFromToken] = useState('ALPHA');
-  const [toToken, setToToken] = useState('BETA');
+  // Update state to handle different token selections per pool
+  const [availableTokensInPool, setAvailableTokensInPool] = useState([]);
+  const [fromToken, setFromToken] = useState('token0');
+  const [toToken, setToToken] = useState('token1');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
 
   /* add liquidity related */
-  const [token0Amount, setToken0Amount] = useState('');
-  const [token1Amount, setToken1Amount] = useState('');
-  const [token2Amount, setToken2Amount] = useState('');
+  const [liquidityAmounts, setLiquidityAmounts] = useState({
+    token0: '',
+    token1: '',
+    token2: ''
+  });
 
   /* withdraw liquidity related */
   const [lpTokenAmount, setLpTokenAmount] = useState('');
-
-  // 添加新的状态变量
-  const [rewardAmounts, setRewardAmounts] = useState({ token0: '', token1: '', token2: '' });
 
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
@@ -94,20 +98,16 @@ function App() {
   };
 
   const calculateOutputAmount = async (inputAmount, tokenIn, tokenOut) => {
-
     if (!inputAmount || !contracts || !tokenIn || !tokenOut) {
       return '0';
     }
 
     try {
-      const mappedTokenIn = tokenIn === 'ALPHA' ? 'token0' : (tokenIn === 'BETA' ? 'token1' : 'token2');
-      const mappedTokenOut = tokenOut === 'ALPHA' ? 'token0' : (tokenOut === 'BETA' ? 'token1' : 'token2');
-
       const result = await getAmountOut(
         contracts,
-        mappedTokenIn,
+        tokenIn,
         inputAmount,
-        mappedTokenOut
+        tokenOut
       );
       return result;
     } catch (error) {
@@ -128,17 +128,11 @@ function App() {
     }
   };
 
-  const handleToken0AmountChange = async (e) => {
-    const value = e.target.value;
-    setToken0Amount(value);
-    if (value && !isNaN(value)) {
-      const [token1Amount, token2Amount] = await calculateTokenAmounts(value);
-      setToken1Amount(token1Amount);
-      setToken2Amount(token2Amount);
-    } else {
-      setToken1Amount('');
-      setToken2Amount('');
-    }
+  const handleLiquidityAmountChange = (tokenKey, value) => {
+    setLiquidityAmounts({
+      ...liquidityAmounts,
+      [tokenKey]: value
+    });
   };
 
   const calculateTokenAmounts = async (amount0) => {
@@ -175,17 +169,17 @@ function App() {
     if (!contracts || !account) return;
     
     // 获取用户代币余额
-    const balances = await getTokenBalances(contracts, account);
+    const balances = await getTokenBalances(currentContracts, account);
     setBalance0(balances.token0);
     setBalance1(balances.token1);
     setBalance2(balances.token2);
 
     // 获取池子信息
-    const info = await getPoolInfo(contracts);
+    const info = await getPoolInfo(currentContracts);
     setPoolInfo(info);
 
     // 获取LP token信息
-    const lpTokenInfo = await getLPTokenInfo(contracts, account);
+    const lpTokenInfo = await getLPTokenInfo(currentContracts, account);
     setLpInfo(lpTokenInfo);
     
     // 获取累积手续费
@@ -206,8 +200,8 @@ function App() {
       const accounts = await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
 
-      // 先设置合约
-      const initializedContracts = await getContracts(signer);
+      // 先设置合约，使用当前选择的池子
+      const initializedContracts = await getContracts(signer, selectedPoolId);
       console.log("Contracts initialized");
 
       // 设置状态
@@ -255,6 +249,9 @@ function App() {
       // 更新所有信息
       await updatePoolAndBalances();
 
+      // Reset input fields
+      setFromAmount('');
+      setToAmount('');
       // 显示包含手续费的成功消息
       alert(`Swap completed successfully!\nAmount: ${fromAmount} ${fromToken}\nFee: ${fee.toFixed(6)} ${fromToken} (0.3%)`);
     } catch (error) {
@@ -269,22 +266,27 @@ function App() {
         throw new Error("Contracts or account not initialized");
       }
 
-      const amounts_list = [
-        token0Amount,
-        token1Amount,
-        token2Amount
-      ];
+      // Only use the amounts for tokens that are in this pool
+      const filteredAmounts = {};
+      contracts.tokensInPool.forEach(tokenKey => {
+        if (liquidityAmounts[tokenKey]) {
+          filteredAmounts[tokenKey] = liquidityAmounts[tokenKey];
+        }
+      });
 
-      const addresses_token = [
-        contracts.token0.address,
-        contracts.token1.address,
-        contracts.token2.address,
-      ];
-
-      await addLiquidity(contracts, addresses_token, amounts_list);
+      await addLiquidity(contracts, filteredAmounts);
 
       // 更新所有信息
       await updatePoolAndBalances();
+
+      // Reset input fields
+      setLiquidityAmounts(prev => {
+        const newAmounts = {...prev};
+        Object.keys(newAmounts).forEach(key => {
+          newAmounts[key] = '';
+        });
+        return newAmounts;
+      });
 
       alert("Liquidity added successfully!");
     } catch (error) {
@@ -393,6 +395,27 @@ function App() {
               </div>
             </Col>
 
+            {/* Pool selector */}
+            <Col className="col-auto ms-3">
+              <Dropdown>
+                <Dropdown.Toggle variant="outline-primary" id="dropdown-pools">
+                  {poolList.find(p => p.id === selectedPoolId)?.pair || 'Select Pool'}
+                </Dropdown.Toggle>
+                
+                <Dropdown.Menu>
+                  {poolList.map(pool => (
+                    <Dropdown.Item 
+                      key={pool.id} 
+                      onClick={() => handlePoolSelect(pool.id)}
+                      active={pool.id === selectedPoolId}
+                    >
+                      {pool.pair}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown>
+            </Col>
+
             {/* 右侧 - 钱包连接按钮 */}
             <Col className="col-auto ms-auto"> 
               {isWalletConnected ? (
@@ -402,7 +425,7 @@ function App() {
                   </Badge>
                   <Button 
                     variant="outline-primary"
-                    onClick={updatePoolAndBalances}
+                    onClick={() => updatePoolAndBalances()}
                     size="sm"
                   >
                     <i className="bi bi-arrow-clockwise"></i> Refresh
@@ -448,11 +471,11 @@ function App() {
                     <th colSpan="2">User Holder</th>
                   </tr>
                   <tr>
-                    <th>#</th>
+                    <th>Pool</th>
                     <th>Pair</th>
-                    <th>Token0 Balance</th>
-                    <th>Token1 Balance</th>
-                    <th>Token3 Balance</th>
+                    <th>ALPHA Balance</th>
+                    <th>BETA Balance</th>
+                    <th>GAMMA Balance</th>
                     <th>Total LP Tokens</th>
                     <th>Fee</th>
                     <th>lpFees</th>
@@ -461,35 +484,18 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* TODO:待有list后补充 
-                   {pools.map((pool) => (
-                    <tr key={pool.id}>
-                      <td>{pool.id}</td>
-                      <td>{pool.pair}</td>
-                      <td>{pool.token0Balance}</td>
-                      <td>{pool.token1Balance}</td>
-                      <td>{pool.totalLPToken}</td>
-                      <td>{pool.fee}</td>
-                      <td>{pool.userLPToken}</td>
-                      <td>${pool.userValue}</td>
-                    </tr>
-                  ))} */}
-                    <tr>
-                      <td>\</td>
-                      <td>ALPHA-BETA-GAMMA</td>
-                      <td>{formatNumber(poolInfo.token0Balance)}</td>
-                      <td>{formatNumber(poolInfo.token1Balance)}</td>
-                      <td>{formatNumber(poolInfo.token2Balance)}</td>
-                      <td>{formatNumber(lpInfo.totalSupply)}</td>
-                      <td>0.3%</td>
-                      <td>
-                        <div>ALPHA: {formatNumber(poolFees.token0Fee)}</div>
-                        <div>BETA: {formatNumber(poolFees.token1Fee)}</div>
-                        <div>GAMMA: {formatNumber(poolFees.token2Fee)}</div>
-                      </td>
-                      <td>{formatNumber(lpInfo.userBalance)}</td>
-                      <td>{lpInfo.percentage}%</td>
-                    </tr>
+                  <tr>
+                    <td>{selectedPoolId}</td>
+                    <td>{contracts?.poolData?.pair || "-"}</td>
+                    <td>{contracts?.tokensInPool?.includes("token0") ? formatNumber(poolInfo.token0Balance) : "-"}</td>
+                    <td>{contracts?.tokensInPool?.includes("token1") ? formatNumber(poolInfo.token1Balance) : "-"}</td>
+                    <td>{contracts?.tokensInPool?.includes("token2") ? formatNumber(poolInfo.token2Balance) : "-"}</td>
+                    <td>{formatNumber(lpInfo.totalSupply)}</td>
+                    <td>0.3%</td>
+                    <td>暂无</td>
+                    <td>{formatNumber(lpInfo.userBalance)}</td>
+                    <td>{lpInfo.percentage}%</td>
+                  </tr>
                 </tbody>
               </Table>
             </Card.Body>
@@ -518,9 +524,11 @@ function App() {
                       onChange={(e) => setFromToken(e.target.value)}
                       style={{ width: '120px' }}
                     >
-                      {supportedTokens.map(token => (
-                        token !== toToken && (
-                          <option key={token} value={token}>{token}</option>
+                      {availableTokensInPool.map(tokenKey => (
+                        tokenKey !== toToken && (
+                          <option key={tokenKey} value={tokenKey}>
+                            {contracts?.tokenMapping[tokenKey]?.symbol || tokenKey}
+                          </option>
                         )
                       ))}
                     </Form.Select>
@@ -548,9 +556,11 @@ function App() {
                       onChange={(e) => setToToken(e.target.value)}
                       style={{ width: '120px' }}
                     >
-                      {supportedTokens.map(token => (
-                        token !== fromToken && (
-                          <option key={token} value={token}>{token}</option>
+                      {availableTokensInPool.map(tokenKey => (
+                        tokenKey !== fromToken && (
+                          <option key={tokenKey} value={tokenKey}>
+                            {contracts?.tokenMapping[tokenKey]?.symbol || tokenKey}
+                          </option>
                         )
                       ))}
                     </Form.Select>
@@ -578,41 +588,25 @@ function App() {
 
             <Tab eventKey="liquidity" title="Add Liquidity">
               <Form>
-                <Form.Group className="mb-3">
-                  <Form.Label>ALPHA Amount</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={token0Amount}
-                    onChange={handleToken0AmountChange}
-                    placeholder="0.00"
-                    step="0.01"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>BETA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formatNumber(token1Amount)}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>GAMMA Amount (calculated automatically)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formatNumber(token2Amount)}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </Form.Group>
+                {contracts && contracts.tokensInPool && contracts.tokensInPool.map((tokenKey, index) => (
+                  <Form.Group className="mb-3" key={tokenKey}>
+                    <Form.Label>
+                      {contracts.tokenMapping[tokenKey].symbol} Amount
+                    </Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={liquidityAmounts[tokenKey]}
+                      onChange={(e) => handleLiquidityAmountChange(tokenKey, e.target.value)}
+                      placeholder="0.00"
+                      step="0.01"
+                    />
+                  </Form.Group>
+                ))}
 
                 <Button
                   variant="primary"
                   onClick={handleAddLiquidity}
-                  disabled={!isWalletConnected || !token0Amount || token0Amount <= 0}
+                  disabled={!isWalletConnected || !contracts?.tokensInPool?.some(token => liquidityAmounts[token] > 0)}
                 >
                   Add Liquidity
                 </Button>
