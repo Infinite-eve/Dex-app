@@ -191,7 +191,7 @@ contract Pool is LPToken, ReentrancyGuard {
         
         uint256 length = i_tokens_addresses.length;
         uint256[] memory return_amount = new uint256[](length);
-        uint256 balance0 = tokenBalances[i_tokens_addresses[0]];
+        uint256 balance0 = tokenBalances[i_tokens_addresses[0]];//输入的token0余额
 
         for (uint256 i = 1; i < length; i++) {
             
@@ -202,9 +202,10 @@ contract Pool is LPToken, ReentrancyGuard {
                 amount = amount0 * INITIAL_RATIO[i];
             }
             else{
-                amount = (amount0 *balance0 ) /  balan;
+                amount = (amount0 *balan ) /  balance0;
             }
             return_amount[i] = amount;
+            // return_amount[i+3] = balan;
         }
         return_amount[0] = amount0;
         return return_amount;
