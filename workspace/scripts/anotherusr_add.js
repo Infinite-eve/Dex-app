@@ -107,8 +107,8 @@ async function main() {
     // 尝试添加流动性
     try {
       const amount0 = ethers.parseEther("10"); // 10个Alpha代币 
-      const amount1 = ethers.parseEther("30"); // 30个Beta代币
-      const amount2 = ethers.parseEther("20"); // 20个Gamma代币
+      const amount1 = ethers.parseEther("20"); // 20个Beta代币
+      const amount2 = ethers.parseEther("30"); // 30个Gamma代币
       const amounts = [amount0, amount1, amount2];
       
       console.log("尝试添加流动性: addLiquidity(address[], uint256[])");

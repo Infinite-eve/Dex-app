@@ -329,33 +329,42 @@ contract Pool is LPToken, ReentrancyGuard {
         require(lpTokenAmount > 0, "Cannot withdraw zero LP tokens");
         require(balanceOf(msg.sender) >= lpTokenAmount, "Insufficient LP token balance");
 
-        // 计算提取比例
-        uint256 ratio = (lpTokenAmount) / totalSupply();
+        // 计算提取比例 - 增加精度避免整数除法问题
+        uint256 totalLp = totalSupply();
+        uint256 ratio = (lpTokenAmount * 1e18) / totalLp;
         
         // 按比例提取所有代币
         uint256 length = i_tokens_addresses.length;
+        address[] memory tokens = new address[](length);
         uint256[] memory withdrawAmounts = new uint256[](length);
         
         for (uint256 i = 0; i < length; i++) {
             address tokenAddr = i_tokens_addresses[i];
-            uint256 amount = (tokenBalances[tokenAddr] * ratio);
+            tokens[i] = tokenAddr;
+            
+            // 增加精度计算，避免取整问题
+            uint256 amount = (tokenBalances[tokenAddr] * ratio) / 1e18;
             withdrawAmounts[i] = amount;
+            
+            // 确保金额大于0
+            require(amount > 0, "Withdraw amount too small");
+            
+            // 先从池子余额减去
             tokenBalances[tokenAddr] -= amount;
-            require(
-                IERC20(tokenAddr).transfer(msg.sender, amount),
-                "Token transfer failed"
-            );
+            
+            // 转账给用户
+            bool success = IERC20(tokenAddr).transfer(msg.sender, amount);
+            require(success, "Token transfer failed");
         }
 
         // 销毁LP代币
         _burn(msg.sender, lpTokenAmount);
 
         emit WithdrawLiquidity(
-            i_tokens_addresses,
+            tokens,
             withdrawAmounts
         );
     }
-
     // 设置交易费率（仅允许合约所有者调用）
     function setTradingFee(uint256 _tradingFee) external {
         require(msg.sender == factory, "Only factory can set trading fee");

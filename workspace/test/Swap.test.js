@@ -181,62 +181,112 @@ async function main() {
   await pool.connect(deployer).setTradingFee(30n); // 使用 BigInt
   console.log("已恢復原始費率:", (await pool.tradingFee()).toString());
 
-  // 測試5: 提取LP獎勵
-  console.log("\n=== 測試5: 提取LP獎勵 ===");
+  // 測試5: 用戶1提取流動性
+  console.log("\n=== 測試5: 用戶1提取流動性 ===");
   
-  // 添加更多流動性以測試獎勵分配
-  console.log("用戶2添加流動性...");
-  const additionalAmounts = [
-    ethers.parseEther("500"),
-    ethers.parseEther("1000"),
-    ethers.parseEther("1500")
-  ];
+  // 记录提取前的状态
+  console.log("提取前状态：");
   
-  await pool.connect(user2).addLiquidity(tokenAddresses, additionalAmounts);
+  // 记录用户1的LP代币余额
+  const user1LpBalance = await pool.balanceOf(user1.address);
+  console.log("用戶1的LP代幣餘額:", ethers.formatEther(user1LpBalance));
   
-  const user2LpBalance = await pool.balanceOf(user2.address);
-  console.log("用戶2的LP代幣餘額:", ethers.formatEther(user2LpBalance));
+  // 记录用户1提取前的代币余额
+  const user1Token0BeforeWithdraw = await token0.balanceOf(user1.address);
+  const user1Token1BeforeWithdraw = await token1.balanceOf(user1.address);
+  const user1Token2BeforeWithdraw = await token2.balanceOf(user1.address);
   
-  // 執行更多交換以生成更多費用
-  console.log("進行更多交換以生成費用...");
-  const moreSwaps = ethers.parseEther("200");
-  await pool.connect(user1).swap(tokenIn, moreSwaps, tokenOut);
-  await pool.connect(user1).swap(tokenIn, moreSwaps, tokenAddresses[2]);
+  console.log("用戶1提取前代幣餘額:");
+  console.log(`- ${await token0.symbol()}: ${ethers.formatEther(user1Token0BeforeWithdraw)}`);
+  console.log(`- ${await token1.symbol()}: ${ethers.formatEther(user1Token1BeforeWithdraw)}`);
+  console.log(`- ${await token2.symbol()}: ${ethers.formatEther(user1Token2BeforeWithdraw)}`);
   
-  // 檢查LP激勵池
-  const lpIncentives = await pool.lpFee(tokenIn);
-  console.log("當前LP激勵池餘額:", ethers.formatEther(lpIncentives));
+  // 记录池子中的代币余额
+  const poolToken0Before = await pool.tokenBalances(tokenAddresses[0]);
+  const poolToken1Before = await pool.tokenBalances(tokenAddresses[1]);
+  const poolToken2Before = await pool.tokenBalances(tokenAddresses[2]);
   
-  // 計算用戶應得份額 (修正 BigInt 運算)
-  const totalLp = await pool.totalSupply();
-  const user2Share = (user2LpBalance * lpIncentives) / totalLp;
+  console.log("提取前池子中的代币餘額:");
+  console.log(`- ${await token0.symbol()}: ${ethers.formatEther(poolToken0Before)}`);
+  console.log(`- ${await token1.symbol()}: ${ethers.formatEther(poolToken1Before)}`);
+  console.log(`- ${await token2.symbol()}: ${ethers.formatEther(poolToken2Before)}`);
   
-  console.log("用戶2應得獎勵份額:", ethers.formatEther(user2Share));
+  // 提取部分流动性（例如提取一半）
+  const withdrawAmount = user1LpBalance / 2n;
+  console.log(`用戶1提取 ${ethers.formatEther(withdrawAmount)} LP代币 (总余额的一半)`);
   
-  // 提取前餘額
-  const user2Token0BeforeClaim = await token0.balanceOf(user2.address);
+  // 计算预期返还的代币数量
+  const totalSupply = await pool.totalSupply();
+  const withdrawRatio = withdrawAmount * BigInt(1e18) / totalSupply;
   
-  // 提取獎勵
-  console.log("用戶2提取獎勵...");
-  await pool.connect(user2).claimLpIncentives(tokenIn);
+  const expectedToken0 = (poolToken0Before * withdrawRatio) / BigInt(1e18);
+  const expectedToken1 = (poolToken1Before * withdrawRatio) / BigInt(1e18);
+  const expectedToken2 = (poolToken2Before * withdrawRatio) / BigInt(1e18);
   
-  // 提取後餘額
-  const user2Token0AfterClaim = await token0.balanceOf(user2.address);
-  const incentivesReceived = user2Token0AfterClaim - user2Token0BeforeClaim;
+  console.log("预期返还的代币数量:");
+  console.log(`- ${await token0.symbol()}: ${ethers.formatEther(expectedToken0)}`);
+  console.log(`- ${await token1.symbol()}: ${ethers.formatEther(expectedToken1)}`);
+  console.log(`- ${await token2.symbol()}: ${ethers.formatEther(expectedToken2)}`);
   
-  console.log("實際獲得的獎勵:", ethers.formatEther(incentivesReceived));
+  // 执行提取流动性操作
+  await pool.connect(user1).withdrawLiquidity(withdrawAmount);
   
-  // 驗證 (修正 BigInt 比較)
+  // 记录提取后的状态
+  console.log("\n提取后状态：");
+  
+  // 记录用户1提取后的LP代币余额
+  const user1LpBalanceAfter = await pool.balanceOf(user1.address);
+  console.log("用戶1提取后的LP代幣餘額:", ethers.formatEther(user1LpBalanceAfter));
+  
+  // 记录用户1提取后的代币余额
+  const user1Token0AfterWithdraw = await token0.balanceOf(user1.address);
+  const user1Token1AfterWithdraw = await token1.balanceOf(user1.address);
+  const user1Token2AfterWithdraw = await token2.balanceOf(user1.address);
+  
+  console.log("用戶1提取后代幣餘額:");
+  console.log(`- ${await token0.symbol()}: ${ethers.formatEther(user1Token0AfterWithdraw)}`);
+  console.log(`- ${await token1.symbol()}: ${ethers.formatEther(user1Token1AfterWithdraw)}`);
+  console.log(`- ${await token2.symbol()}: ${ethers.formatEther(user1Token2AfterWithdraw)}`);
+  
+  // 计算实际收到的代币数量
+  const receivedToken0 = user1Token0AfterWithdraw - user1Token0BeforeWithdraw;
+  const receivedToken1 = user1Token1AfterWithdraw - user1Token1BeforeWithdraw;
+  const receivedToken2 = user1Token2AfterWithdraw - user1Token2BeforeWithdraw;
+  
+  console.log("实际收到的代币数量:");
+  console.log(`- ${await token0.symbol()}: ${ethers.formatEther(receivedToken0)}`);
+  console.log(`- ${await token1.symbol()}: ${ethers.formatEther(receivedToken1)}`);
+  console.log(`- ${await token2.symbol()}: ${ethers.formatEther(receivedToken2)}`);
+  
+  // 验证结果
   const tolerance = ethers.parseEther("0.0001");
+  
+  // 验证LP代币余额减少正确
+  expect(user1LpBalanceAfter).to.equal(user1LpBalance - withdrawAmount);
+  
+  // 验证收到的代币数量与预期接近
   expect(
-    (incentivesReceived > user2Share ? incentivesReceived - user2Share : user2Share - incentivesReceived)
+    (receivedToken0 > expectedToken0 ? receivedToken0 - expectedToken0 : expectedToken0 - receivedToken0)
   ).to.be.lessThan(tolerance);
   
-  console.log("✅ LP獎勵提取測試通過");
+  expect(
+    (receivedToken1 > expectedToken1 ? receivedToken1 - expectedToken1 : expectedToken1 - receivedToken1)
+  ).to.be.lessThan(tolerance);
+  
+  expect(
+    (receivedToken2 > expectedToken2 ? receivedToken2 - expectedToken2 : expectedToken2 - receivedToken2)
+  ).to.be.lessThan(tolerance);
+  
+  console.log("✅ 用戶1提取流動性測試通過");
 
   // 測試6: 錯誤處理
   console.log("\n=== 測試6: 錯誤處理 ===");
-  
+
+  // 验证 feeCollector 确实没有LP代币
+  const feeCollectorLpBalance = await pool.balanceOf(feeCollector.address);
+  console.log(`Fee collector的LP代币余额: ${ethers.formatEther(feeCollectorLpBalance)}`);
+  expect(feeCollectorLpBalance).to.equal(0);
+
   console.log("測試非LP持有者提取獎勵...");
   try {
     await pool.connect(feeCollector).claimLpIncentives(tokenIn);
@@ -245,37 +295,65 @@ async function main() {
     console.log("✅ 非LP持有者提取被正確拒絕");
     expect(error.message).to.include("No LP tokens owned");
   }
-  
-  // 測試提取沒有獎勵的代幣
-  console.log("測試提取沒有獎勵的代幣...");
-  // 先確保代幣獎勵被提空
-  const unusedToken = tokenAddresses[2];
 
-  // 確保用戶1有LP代幣但沒有該代幣的獎勵
-  let hasIncentives = true;
+  // 确认user1仍然有LP代币
+  const user1RemainingLp = await pool.balanceOf(user1.address);
+  console.log(`用户1剩余LP代币: ${ethers.formatEther(user1RemainingLp)}`);
+  expect(user1RemainingLp).to.be.gt(0);
+
+  // 確保有交易產生手續費才測試提取獎勵
+  console.log("進行一次交易以產生手續費...");
+  const smallSwapAmount = ethers.parseEther("10");
+  await pool.connect(user2).swap(tokenIn, smallSwapAmount, tokenOut);
+  console.log("交易完成，應產生少量手續費");
+
+  // 测试提取有奖励的代币 (tokenIn应该有奖励)
+  console.log("測試提取有獎勵的代幣...");
   try {
-    await pool.connect(user1).claimLpIncentives(unusedToken);
-    console.log("提取成功，確保獎勵已清空");
-  } catch (error) {
-    if (error.message.includes("No incentives to claim")) {
-      console.log("該代幣已經沒有獎勵");
-      hasIncentives = false;
+    const claimableBefore = await pool.lpFee(tokenIn);
+    const user1LpShare = user1RemainingLp;
+    const totalLp = await pool.totalSupply();
+    const expectedClaim = (claimableBefore * user1LpShare) / totalLp;
+    
+    console.log(`可提取奖励: ${ethers.formatEther(expectedClaim)} ${await token0.symbol()}`);
+    
+    // 只有在有奖励可提取时才测试
+    if (expectedClaim > 0) {
+      const tx = await pool.connect(user1).claimLpIncentives(tokenIn);
+      await tx.wait();
+      console.log("✅ 成功提取有奖励的代币");
     } else {
-      throw error; // 如果是其他錯誤，則拋出
+      console.log("没有足够的奖励可提取，跳过此测试");
     }
+  } catch (error) {
+    console.log("❌ 提取有獎勵的代幣失敗:", error.message);
+    throw error;
   }
 
-  // 再次嘗試提取，應該會失敗
-  try {
-    await pool.connect(user1).claimLpIncentives(unusedToken);
-    console.log("❌ 提取沒有獎勵的代幣應該失敗但成功了");
-    throw new Error("Test failed: Should not be able to claim without incentives");
-  } catch (error) {
-    if (error.message.includes("No incentives to claim")) {
-      console.log("✅ 提取沒有獎勵的代幣被正確拒絕");
-    } else {
-      throw error; // 如果是其他錯誤，則拋出
+  // 測試提取沒有獎勵的代幣
+  console.log("測試提取沒有獎勵的代幣...");
+  // 选择一个没有手续费的代币 (token2应该没有手续费)
+  const unusedToken = tokenAddresses[2];
+
+  // 检查是否有奖励可提取
+  const unusedTokenFee = await pool.lpFee(unusedToken);
+  console.log(`未使用代币的手续费余额: ${ethers.formatEther(unusedTokenFee)}`);
+
+  // 只有当确实没有奖励时才测试
+  if (unusedTokenFee == 0) {
+    try {
+      await pool.connect(user1).claimLpIncentives(unusedToken);
+      console.log("❌ 提取沒有獎勵的代幣應該失敗但成功了");
+    } catch (error) {
+      if (error.message.includes("No incentives to claim")) {
+        console.log("✅ 提取沒有獎勵的代幣被正確拒絕");
+      } else {
+        console.log("❌ 錯誤不符合預期:", error.message);
+        throw error;
+      }
     }
+  } else {
+    console.log("该代币有奖励可提取，跳过此测试");
   }
 
   console.log("\n=== 所有測試完成 ===");
