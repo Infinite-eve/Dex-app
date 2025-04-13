@@ -307,10 +307,6 @@ function App() {
       // 获取预期输出数量
       const expectedAmountOut = await getAmountOut(contracts, tokenIn, amountIn, tokenOut);
       const expectedAmountOutNum = parseFloat(expectedAmountOut);
-      
-      // 根据滑点计算最小输出数量
-      const minAmountOut = expectedAmountOutNum * (1 - slippage / 10000);
-      const minAmountOutWei = ethers.parseEther(minAmountOut.toString());
 
       // 使用用户设置的滑点值
       const tx = await swapTokens(contracts, tokenIn, amountIn, tokenOut, slippage);
@@ -644,7 +640,31 @@ function App() {
                   </div>
                 </Form.Group>
 
-                {/* 添加手续费显示 */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Slippage Tolerance</Form.Label>
+                  <div className="d-flex align-items-center">
+                    <Form.Control
+                      type="number"
+                      value={slippage / 100}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        if (!isNaN(value) && value >= 0.1 && value <= 10) {
+                          setSlippage(value * 100);
+                        }
+                      }}
+                      placeholder="0.5"
+                      step="0.1"
+                      min="0.1"
+                      max="5"
+                      style={{ width: '100px' }}
+                    />
+                    <span className="ms-2">%</span>
+                  </div>
+                  <Form.Text className="text-muted">
+                    Your transaction will revert if the price changes unfavorably by more than this percentage.
+                  </Form.Text>
+                </Form.Group>
+
                 {fromAmount && parseFloat(fromAmount) > 0 && (
                   <div className="text-muted mb-3">
                     <small>
