@@ -15,7 +15,7 @@ async function main() {
   
   // Replace with the address of the recipient account
   //替换自己的地址
-  const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
+  const recipientAddress = "0x178C4a24C06654425C0f83425FB57590e0327ee0"; // My address (from MetaMask)
   if (isAddress(recipientAddress)) {
       console.log("Valid address");
   } else {

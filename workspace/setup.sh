@@ -14,8 +14,8 @@ export NVM_DIR="$HOME/.nvm"
 
 # 安装指定版本的 Node.js
 echo "Installing Node.js..."
-nvm install 16
-nvm use 16
+nvm install 22
+nvm use 22
 
 # 检查 node 版本
 echo "Node version:"
@@ -45,7 +45,10 @@ npm install --save-exact \
     react-dom@19.0.0 \
     react-scripts@5.0.1 \
     web-vitals@2.1.4 \
-    web3@4.16.0
+    web3@4.16.0\
+
+#安装install bootstrap-icons
+npm install bootstrap-icons
 
 # 返回根目录
 cd ..
