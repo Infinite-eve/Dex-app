@@ -154,22 +154,32 @@ contract Router is ReentrancyGuard {
         address tokenA, 
         address tokenB
     ) public view returns (address[] memory) {
-        // 首先检查简单的两币池
+        // 首先尝试直接查找两币池
         address[] memory tokensAB = new address[](2);
         tokensAB[0] = tokenA;
         tokensAB[1] = tokenB;
-        address directPool = factory.getPool(tokensAB);
+        address directPool1 = factory.getPool(tokensAB);
+        
+        // 尝试反向顺序
+        address[] memory tokensBA = new address[](2);
+        tokensBA[0] = tokenB;
+        tokensBA[1] = tokenA;
+        address directPool2 = factory.getPool(tokensBA);
         
         // 然后检查是否有三币池包含这两种代币
         address[] memory supportedTokens = getSupportedTokens(); 
         
         // 预分配足够大的数组来存储所有可能的池子
-        address[] memory possiblePools = new address[](supportedTokens.length);
+        address[] memory possiblePools = new address[](supportedTokens.length + 2);
         uint256 poolCount = 0;
         
-        // 如果两币池存在，添加到结果中
-        if (directPool != address(0)) {
-            possiblePools[poolCount] = directPool;
+        // 添加找到的两币池
+        if (directPool1 != address(0)) {
+            possiblePools[poolCount] = directPool1;
+            poolCount++;
+        }
+        if (directPool2 != address(0) && directPool2 != directPool1) {
+            possiblePools[poolCount] = directPool2;
             poolCount++;
         }
         
@@ -182,16 +192,77 @@ contract Router is ReentrancyGuard {
                 continue;
             }
             
-            // 检查是否存在包含这三种代币的池子
+            // 尝试不同的代币顺序
+            address[] memory combinations = new address[](6);
+            uint256 combinationCount = 0;
+            
+            // 所有可能的三币组合顺序
+            address[][] memory tokenCombinations = new address[][](6);
+            
+            // ABC 顺序
             address[] memory tokensABC = new address[](3);
             tokensABC[0] = tokenA;
             tokensABC[1] = tokenB;
             tokensABC[2] = tokenC;
-            address triPool = factory.getPool(tokensABC);
+            tokenCombinations[combinationCount++] = tokensABC;
             
-            if (triPool != address(0)) {
-                possiblePools[poolCount] = triPool;
-                poolCount++;
+            // ACB 顺序
+            address[] memory tokensACB = new address[](3);
+            tokensACB[0] = tokenA;
+            tokensACB[1] = tokenC;
+            tokensACB[2] = tokenB;
+            tokenCombinations[combinationCount++] = tokensACB;
+            
+            // BAC 顺序
+            address[] memory tokensBAC = new address[](3);
+            tokensBAC[0] = tokenB;
+            tokensBAC[1] = tokenA;
+            tokensBAC[2] = tokenC;
+            tokenCombinations[combinationCount++] = tokensBAC;
+            
+            // BCA 顺序
+            address[] memory tokensBCA = new address[](3);
+            tokensBCA[0] = tokenB;
+            tokensBCA[1] = tokenC;
+            tokensBCA[2] = tokenA;
+            tokenCombinations[combinationCount++] = tokensBCA;
+            
+            // CAB 顺序
+            address[] memory tokensCAB = new address[](3);
+            tokensCAB[0] = tokenC;
+            tokensCAB[1] = tokenA;
+            tokensCAB[2] = tokenB;
+            tokenCombinations[combinationCount++] = tokensCAB;
+            
+            // CBA 顺序
+            address[] memory tokensCBA = new address[](3);
+            tokensCBA[0] = tokenC;
+            tokensCBA[1] = tokenB;
+            tokensCBA[2] = tokenA;
+            tokenCombinations[combinationCount++] = tokensCBA;
+            
+            // 尝试所有可能的组合
+            for (uint j = 0; j < combinationCount; j++) {
+                address triPool = factory.getPool(tokenCombinations[j]);
+                
+                if (triPool != address(0)) {
+                    // 检查这个池子是否已经在结果中
+                    bool poolExists = false;
+                    for (uint k = 0; k < poolCount; k++) {
+                        if (possiblePools[k] == triPool) {
+                            poolExists = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!poolExists) {
+                        possiblePools[poolCount] = triPool;
+                        poolCount++;
+                    }
+                    
+                    // 找到一个池子后就可以跳出循环了，不需要检查其他组合
+                    break;
+                }
             }
         }
         
