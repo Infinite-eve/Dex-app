@@ -7,9 +7,9 @@ import Logo from "./assets/icons/currency-exchange.svg"
 import { Card, Tabs, Tab, Row, Col, Form, Button, Container, Badge, Table, Dropdown } from 'react-bootstrap';
 
 /* Interaction with Backend */
-import { React, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives, getSmartAmountOut, findBestSwapPath, smartSwapTokens, getPathInfo } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
@@ -38,6 +38,7 @@ function App() {
 
   // 添加新的状态变量
   const [rewardAmounts, setRewardAmounts] = useState({ token0: '', token1: '', token2: '' });
+  const [routingPath, setRoutingPath] = useState([]); // 智能路由的路径信息
 
   /* balance related */
   const [balance0, setBalance0] = useState(0);
@@ -446,6 +447,81 @@ function App() {
     }
   };
 
+  // 处理智能交换输入变化
+  const handleSmartFromAmountChange = async (e) => {
+    const value = e.target.value;
+    setFromAmount(value);
+
+    if (value && !isNaN(value)) {
+      try {
+        // 使用Router获取智能路由的数量预估
+        const { amountOut, path } = await getSmartAmountOut(contracts, fromToken, value, toToken);
+        setToAmount(amountOut);
+        
+        // 获取并设置路径信息，用于显示
+        if (path && path.length > 0) {
+          const pathInfo = await getPathInfo(contracts, path);
+          setRoutingPath(pathInfo);
+        }
+      } catch (error) {
+        console.error("Error calculating smart output:", error);
+        setToAmount('0');
+      }
+    } else {
+      setToAmount('');
+      setRoutingPath([]);
+    }
+  };
+
+  // 执行智能交换
+  const handleSmartSwap = async () => {
+    try {
+      if (!contracts || !account) {
+        alert("Please connect your wallet first");
+        return;
+      }
+
+      const tokenIn = fromToken;
+      const tokenOut = toToken;
+      const amountIn = parseFloat(fromAmount);
+
+      if (isNaN(amountIn) || amountIn <= 0) {
+        alert("Please enter a valid input amount");
+        return;
+      }
+
+      // 执行智能交换
+      const tx = await smartSwapTokens(
+        contracts, 
+        tokenIn, 
+        amountIn, 
+        tokenOut, 
+        slippage, 
+        account
+      );
+      
+      await tx.wait();
+
+      // 重置输入
+      setFromAmount('');
+      setToAmount('');
+      setRoutingPath([]);
+      
+      // 更新余额
+      await updatePoolAndBalances(contracts);
+      alert("Smart Swap successful!");
+    } catch (error) {
+      console.error("Error in smart swap:", error);
+      if (error.message.includes("Slippage too high")) {
+        alert("Slippage too high, please adjust slippage settings or try again later");
+      } else if (error.message.includes("Insufficient")) {
+        alert("Insufficient balance, please check your token balances");
+      } else {
+        alert("Smart Swap failed: " + error.message);
+      }
+    }
+  };
+
   return (
     <div className="container py-5">
       <nav className="bg-light py-3 shadow-sm"> 
@@ -773,17 +849,44 @@ function App() {
                 <Card className="bg-light mb-3">
                   <Card.Body>
                     <Card.Title className="fs-6">Routing</Card.Title>
-                    <div className="d-flex align-items-center">
-                      <Badge bg="primary" className="me-2">
-                        {supportedTokens[parseInt(fromToken.replace('token', ''))]}
-                      </Badge>
-                      <i className="bi bi-arrow-right mx-2"></i>
-                      <Badge bg="success" className="me-2">
-                        {supportedTokens[parseInt(toToken.replace('token', ''))]}
-                      </Badge>
-                      <div className="ms-auto text-muted small">
-                        Estimated output with {slippage/100}% slippage: {formatNumber(toAmount * (1 - slippage/10000))} {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                    <div className="d-flex align-items-center flex-wrap">
+                      {/* 如果有路由信息，显示完整路径 */}
+                      {routingPath.length > 0 ? (
+                        <>
+                          {routingPath.map((token, index) => (
+                            <React.Fragment key={index}>
+                              <Badge bg={index === 0 ? "primary" : (index === routingPath.length - 1 ? "success" : "secondary")} className="me-2">
+                                {token.symbol}
+                              </Badge>
+                              {index < routingPath.length - 1 && (
+                                <i className="bi bi-arrow-right mx-2"></i>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {/* 没有路由信息时显示简单路径 */}
+                          <Badge bg="primary" className="me-2">
+                            {supportedTokens[parseInt(fromToken.replace('token', ''))]}
+                          </Badge>
+                          <i className="bi bi-arrow-right mx-2"></i>
+                          <Badge bg="success" className="me-2">
+                            {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                    
+                    {routingPath.length > 2 && (
+                      <div className="mt-2 small text-info">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Smart Swap has found a better route through intermediate tokens.
                       </div>
+                    )}
+                    
+                    <div className="mt-2 text-muted small">
+                      Estimated output with {slippage/100}% slippage: {formatNumber(toAmount * (1 - slippage/10000))} {supportedTokens[parseInt(toToken.replace('token', ''))]}
                     </div>
                   </Card.Body>
                 </Card>
