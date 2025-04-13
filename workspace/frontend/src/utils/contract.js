@@ -430,23 +430,68 @@ export const findBestSwapPath = async (contracts, tokenIn, amountIn, tokenOut) =
 // 使用Router获取预期输出金额（考虑最佳路径）
 export const getSmartAmountOut = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
-    if (!amountIn || amountIn <= 0) return '0';
+    if (!amountIn || amountIn <= 0) return { amountOut: '0', path: [] };
+    
+    // 检查tokenIn和tokenOut是否在tokenMapping中存在
+    if (!contracts.tokenMapping[tokenIn] || !contracts.tokenMapping[tokenOut]) {
+      console.warn(`Token mapping not found for ${tokenIn} or ${tokenOut}`);
+      
+      // 尝试直接从tokenIndex推断地址
+      const tokenInAddr = contracts.tokenMapping[tokenIn]?.address || 
+                          (tokenIn === 'token0' ? contracts.token0.address : 
+                           tokenIn === 'token1' ? contracts.token1.address : 
+                           tokenIn === 'token2' ? contracts.token2.address : null);
+                           
+      const tokenOutAddr = contracts.tokenMapping[tokenOut]?.address || 
+                           (tokenOut === 'token0' ? contracts.token0.address : 
+                            tokenOut === 'token1' ? contracts.token1.address : 
+                            tokenOut === 'token2' ? contracts.token2.address : null);
+      
+      if (!tokenInAddr || !tokenOutAddr) {
+        console.error('Cannot determine token addresses');
+        return { amountOut: '0', path: [] };
+      }
+      
+      const amountInWei = ethers.parseEther(amountIn.toString());
+      
+      try {
+        // 调用Router的getAmountsOut方法获取预期输出金额
+        const [amountOut, path] = await contracts.router.contract.getAmountsOut(
+          tokenInAddr,
+          amountInWei,
+          tokenOutAddr
+        );
+        
+        return {
+          amountOut: ethers.formatEther(amountOut),
+          path: path
+        };
+      } catch (routerError) {
+        console.error("Router getAmountsOut error:", routerError);
+        return { amountOut: '0', path: [] };
+      }
+    }
     
     const tokenInAddr = contracts.tokenMapping[tokenIn].address;
     const tokenOutAddr = contracts.tokenMapping[tokenOut].address;
     const amountInWei = ethers.parseEther(amountIn.toString());
     
-    // 调用Router的getAmountsOut方法获取预期输出金额
-    const [amountOut, path] = await contracts.router.contract.getAmountsOut(
-      tokenInAddr,
-      amountInWei,
-      tokenOutAddr
-    );
-    
-    return {
-      amountOut: ethers.formatEther(amountOut),
-      path: path
-    };
+    try {
+      // 调用Router的getAmountsOut方法获取预期输出金额
+      const [amountOut, path] = await contracts.router.contract.getAmountsOut(
+        tokenInAddr,
+        amountInWei,
+        tokenOutAddr
+      );
+      
+      return {
+        amountOut: ethers.formatEther(amountOut),
+        path: path
+      };
+    } catch (routerError) {
+      console.error("Router getAmountsOut error:", routerError);
+      return { amountOut: '0', path: [] };
+    }
   } catch (error) {
     console.error("Error getting expected amount out:", error);
     return {
