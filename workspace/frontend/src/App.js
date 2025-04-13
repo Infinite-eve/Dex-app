@@ -56,6 +56,12 @@ function App() {
   const [toToken, setToToken] = useState('token1');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
+  
+  /* 添加独立的 Smart Swap 币种选择器状态 */
+  const [smartFromToken, setSmartFromToken] = useState('token0');
+  const [smartToToken, setSmartToToken] = useState('token1');
+  const [smartFromAmount, setSmartFromAmount] = useState('');
+  const [smartToAmount, setSmartToAmount] = useState('');
 
   /* add liquidity related */
   const [liquidityAmounts, setLiquidityAmounts] = useState({
@@ -450,25 +456,25 @@ function App() {
   // 处理智能交换输入变化
   const handleSmartFromAmountChange = async (e) => {
     const value = e.target.value;
-    setFromAmount(value);
+    setSmartFromAmount(value);
 
     if (value && !isNaN(value)) {
       try {
         // 使用Router获取智能路由的数量预估
-        const { amountOut, path } = await getSmartAmountOut(contracts, fromToken, value, toToken);
-        setToAmount(amountOut);
+        const { amountOut, path, pools } = await getSmartAmountOut(contracts, smartFromToken, value, smartToToken);
+        setSmartToAmount(amountOut);
         
         // 获取并设置路径信息，用于显示
         if (path && path.length > 0) {
-          const pathInfo = await getPathInfo(contracts, path);
+          const pathInfo = await getPathInfo(contracts, path, pools);
           setRoutingPath(pathInfo);
         }
       } catch (error) {
         console.error("Error calculating smart output:", error);
-        setToAmount('0');
+        setSmartToAmount('0');
       }
     } else {
-      setToAmount('');
+      setSmartToAmount('');
       setRoutingPath([]);
     }
   };
@@ -481,9 +487,9 @@ function App() {
         return;
       }
 
-      const tokenIn = fromToken;
-      const tokenOut = toToken;
-      const amountIn = parseFloat(fromAmount);
+      const tokenIn = smartFromToken;
+      const tokenOut = smartToToken;
+      const amountIn = parseFloat(smartFromAmount);
 
       if (isNaN(amountIn) || amountIn <= 0) {
         alert("Please enter a valid input amount");
@@ -503,8 +509,8 @@ function App() {
       await tx.wait();
 
       // 重置输入
-      setFromAmount('');
-      setToAmount('');
+      setSmartFromAmount('');
+      setSmartToAmount('');
       setRoutingPath([]);
       
       // 更新余额
@@ -767,19 +773,24 @@ function App() {
                   <div className="d-flex">
                     <Form.Control
                       type="number"
-                      value={fromAmount}
+                      value={smartFromAmount}
                       onChange={handleSmartFromAmountChange}
                       placeholder="0.00"
                       step="0.01"
                       className="me-2"
                     />
                     <Form.Select
-                      value={fromToken}
-                      onChange={(e) => setFromToken(e.target.value)}
+                      value={smartFromToken}
+                      onChange={(e) => {
+                        setSmartFromToken(e.target.value);
+                        setSmartFromAmount('');
+                        setSmartToAmount('');
+                        setRoutingPath([]);
+                      }}
                       style={{ width: '120px' }}
                     >
                       {supportedTokens.map((token, index) => (
-                        token !== toToken && (
+                        token !== supportedTokens[parseInt(smartToToken.replace('token', ''))] && (
                           <option key={index} value={`token${index}`}>
                             {token}
                           </option>
@@ -790,7 +801,17 @@ function App() {
                 </Form.Group>
 
                 <div className="text-center my-3">
-                  <Button variant="outline-secondary" onClick={handleTokenSwitch}>
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={() => {
+                      const tempToken = smartFromToken;
+                      setSmartFromToken(smartToToken);
+                      setSmartToToken(tempToken);
+                      setSmartFromAmount('');
+                      setSmartToAmount('');
+                      setRoutingPath([]);
+                    }}
+                  >
                     ↑↓
                   </Button>
                 </div>
@@ -800,18 +821,23 @@ function App() {
                   <div className="d-flex">
                     <Form.Control
                       type="number"
-                      value={formatNumber(toAmount)}
+                      value={formatNumber(smartToAmount)}
                       readOnly
                       placeholder="0.00"
                       className="me-2"
                     />
                     <Form.Select
-                      value={toToken}
-                      onChange={(e) => setToToken(e.target.value)}
+                      value={smartToToken}
+                      onChange={(e) => {
+                        setSmartToToken(e.target.value);
+                        setSmartFromAmount('');
+                        setSmartToAmount('');
+                        setRoutingPath([]);
+                      }}
                       style={{ width: '120px' }}
                     >
                       {supportedTokens.map((token, index) => (
-                        token !== fromToken && (
+                        token !== supportedTokens[parseInt(smartFromToken.replace('token', ''))] && (
                           <option key={index} value={`token${index}`}>
                             {token}
                           </option>
@@ -858,7 +884,20 @@ function App() {
                               <Badge bg={index === 0 ? "primary" : (index === routingPath.length - 1 ? "success" : "secondary")} className="me-2">
                                 {token.symbol}
                               </Badge>
-                              {index < routingPath.length - 1 && (
+
+                              {/* 显示池子信息（如果有） */}
+                              {index < routingPath.length - 1 && token.pool && (
+                                <div className="d-inline-flex align-items-center">
+                                  <i className="bi bi-arrow-right mx-1"></i>
+                                  <Badge bg="info" pill className="small mx-1">
+                                    via {token.pool.pair || token.pool.id}
+                                  </Badge>
+                                  <i className="bi bi-arrow-right mx-1"></i>
+                                </div>
+                              )}
+                              
+                              {/* 如果只有代币路径没有池子信息，则显示简单箭头 */}
+                              {index < routingPath.length - 1 && !token.pool && (
                                 <i className="bi bi-arrow-right mx-2"></i>
                               )}
                             </React.Fragment>
@@ -886,7 +925,7 @@ function App() {
                     )}
                     
                     <div className="mt-2 text-muted small">
-                      Estimated output with {slippage/100}% slippage: {formatNumber(toAmount * (1 - slippage/10000))} {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                      Estimated output with {slippage/100}% slippage: {formatNumber(smartToAmount * (1 - slippage/10000))} {supportedTokens[parseInt(smartToToken.replace('token', ''))]}
                     </div>
                   </Card.Body>
                 </Card>
