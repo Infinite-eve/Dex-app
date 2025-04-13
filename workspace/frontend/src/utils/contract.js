@@ -430,73 +430,62 @@ export const findBestSwapPath = async (contracts, tokenIn, amountIn, tokenOut) =
 // 使用Router获取预期输出金额（考虑最佳路径）
 export const getSmartAmountOut = async (contracts, tokenIn, amountIn, tokenOut) => {
   try {
-    if (!amountIn || amountIn <= 0) return { amountOut: '0', path: [] };
+    if (!amountIn || amountIn <= 0) return { amountOut: '0', path: [], pools: [] };
     
-    // 检查tokenIn和tokenOut是否在tokenMapping中存在
-    if (!contracts.tokenMapping[tokenIn] || !contracts.tokenMapping[tokenOut]) {
-      console.warn(`Token mapping not found for ${tokenIn} or ${tokenOut}`);
-      
-      // 尝试直接从tokenIndex推断地址
-      const tokenInAddr = contracts.tokenMapping[tokenIn]?.address || 
-                          (tokenIn === 'token0' ? contracts.token0.address : 
-                           tokenIn === 'token1' ? contracts.token1.address : 
-                           tokenIn === 'token2' ? contracts.token2.address : null);
-                           
-      const tokenOutAddr = contracts.tokenMapping[tokenOut]?.address || 
-                           (tokenOut === 'token0' ? contracts.token0.address : 
-                            tokenOut === 'token1' ? contracts.token1.address : 
-                            tokenOut === 'token2' ? contracts.token2.address : null);
-      
-      if (!tokenInAddr || !tokenOutAddr) {
-        console.error('Cannot determine token addresses');
-        return { amountOut: '0', path: [] };
-      }
-      
-      const amountInWei = ethers.parseEther(amountIn.toString());
-      
-      try {
-        // 调用Router的getAmountsOut方法获取预期输出金额
-        const [amountOut, path] = await contracts.router.contract.getAmountsOut(
-          tokenInAddr,
-          amountInWei,
-          tokenOutAddr
-        );
-        
-        return {
-          amountOut: ethers.formatEther(amountOut),
-          path: path
-        };
-      } catch (routerError) {
-        console.error("Router getAmountsOut error:", routerError);
-        return { amountOut: '0', path: [] };
-      }
+    // 不依赖tokenMapping，直接使用token索引映射到地址
+    const tokenIndexToAddress = {
+      'token0': contracts.token0.address,
+      'token1': contracts.token1.address,
+      'token2': contracts.token2.address
+    };
+    
+    const tokenInAddr = tokenIndexToAddress[tokenIn];
+    const tokenOutAddr = tokenIndexToAddress[tokenOut];
+    
+    if (!tokenInAddr || !tokenOutAddr) {
+      console.error(`Invalid token identifier: ${tokenIn} or ${tokenOut}`);
+      return { amountOut: '0', path: [], pools: [] };
     }
     
-    const tokenInAddr = contracts.tokenMapping[tokenIn].address;
-    const tokenOutAddr = contracts.tokenMapping[tokenOut].address;
     const amountInWei = ethers.parseEther(amountIn.toString());
     
     try {
-      // 调用Router的getAmountsOut方法获取预期输出金额
-      const [amountOut, path] = await contracts.router.contract.getAmountsOut(
+      // 调用Router的findBestPath方法获取最佳路径
+      const [path, pools] = await contracts.router.contract.findBestPath(
         tokenInAddr,
-        amountInWei,
-        tokenOutAddr
+        tokenOutAddr,
+        amountInWei
       );
       
+      console.log("Path found:", path);
+      console.log("Using pools:", pools);
+      
+      // 计算预期输出金额
+      let expectedAmount = amountInWei;
+      for (let i = 0; i < path.length - 1; i++) {
+        const poolContract = new ethers.Contract(pools[i], abis.Pool, contracts.token0.contract.runner);
+        expectedAmount = await poolContract.getAmountOut(
+          path[i],
+          expectedAmount,
+          path[i + 1]
+        );
+      }
+      
       return {
-        amountOut: ethers.formatEther(amountOut),
-        path: path
+        amountOut: ethers.formatEther(expectedAmount),
+        path: path,
+        pools: pools
       };
     } catch (routerError) {
-      console.error("Router getAmountsOut error:", routerError);
-      return { amountOut: '0', path: [] };
+      console.error("Router path finding error:", routerError);
+      return { amountOut: '0', path: [], pools: [] };
     }
   } catch (error) {
     console.error("Error getting expected amount out:", error);
     return {
       amountOut: '0',
-      path: []
+      path: [],
+      pools: []
     };
   }
 };
@@ -505,8 +494,21 @@ export const getSmartAmountOut = async (contracts, tokenIn, amountIn, tokenOut) 
 export const smartSwapTokens = async (contracts, tokenIn, amountIn, tokenOut, slippage, account) => {
   try {
     const amountInWei = ethers.parseEther(amountIn.toString());
-    const tokenInAddr = contracts.tokenMapping[tokenIn].address;
-    const tokenOutAddr = contracts.tokenMapping[tokenOut].address;
+    
+    // 不依赖tokenMapping，直接使用token索引映射到地址
+    const tokenIndexToAddress = {
+      'token0': contracts.token0.address,
+      'token1': contracts.token1.address,
+      'token2': contracts.token2.address
+    };
+    
+    const tokenInAddr = tokenIndexToAddress[tokenIn];
+    const tokenOutAddr = tokenIndexToAddress[tokenOut];
+    
+    if (!tokenInAddr || !tokenOutAddr) {
+      console.error(`Invalid token identifier: ${tokenIn} or ${tokenOut}`);
+      throw new Error("Invalid token identifier");
+    }
     
     // 计算预期输出数量
     const { amountOut } = await getSmartAmountOut(contracts, tokenIn, amountIn, tokenOut);
@@ -520,10 +522,14 @@ export const smartSwapTokens = async (contracts, tokenIn, amountIn, tokenOut, sl
     const deadline = Math.floor(Date.now() / 1000) + 3600;
     
     // 授权Router合约使用代币
-    const tokenInContract = contracts[tokenIn].contract;
+    const tokenInContract = new ethers.Contract(
+      tokenInAddr, 
+      abis.NewToken, 
+      contracts.token0.contract.runner
+    );
     await tokenInContract.approve(contracts.router.address, amountInWei);
     
-    console.log(`Swapping ${amountIn} ${tokenIn} to ${tokenOut} with slippage ${slippage/100}%`);
+    console.log(`Smart swapping ${amountIn} ${tokenIn} to ${tokenOut} with slippage ${slippage/100}%`);
     console.log(`Minimum output amount: ${minAmountOut}`);
     
     // 执行交换
@@ -545,25 +551,49 @@ export const smartSwapTokens = async (contracts, tokenIn, amountIn, tokenOut, sl
 };
 
 // 获取路径显示信息
-export const getPathInfo = async (contracts, path) => {
+export const getPathInfo = async (contracts, path, pools) => {
   try {
     if (!path || path.length === 0) return [];
+    
+    // 创建地址到符号的映射
+    const addressToSymbol = {
+      [contracts.token0.address]: "ALPHA",
+      [contracts.token1.address]: "BETA",
+      [contracts.token2.address]: "GAMMA"
+    };
     
     const pathInfo = [];
     for (let i = 0; i < path.length; i++) {
       const tokenAddress = path[i];
-      let tokenSymbol = "未知";
+      // 使用地址直接查找符号，如果不存在则显示"Unknown"
+      const tokenSymbol = addressToSymbol[tokenAddress] || "Unknown";
       
-      // 查找对应的代币符号
-      if (tokenAddress === contracts.token0.address) {
-        tokenSymbol = contracts.token0.symbol;
-      } else if (tokenAddress === contracts.token1.address) {
-        tokenSymbol = contracts.token1.symbol;
-      } else if (tokenAddress === contracts.token2.address) {
-        tokenSymbol = contracts.token2.symbol;
+      const tokenInfo = { 
+        address: tokenAddress, 
+        symbol: tokenSymbol 
+      };
+      
+      // 如果不是最后一个代币且有对应的池子，添加池子信息
+      if (i < path.length - 1 && pools && pools.length > i) {
+        const poolAddress = pools[i];
+        
+        // 查找对应的池子数据
+        let poolInfo = null;
+        for (const poolId in addresses.pools) {
+          if (addresses.pools[poolId].address.toLowerCase() === poolAddress.toLowerCase()) {
+            poolInfo = {
+              id: poolId,
+              pair: addresses.pools[poolId].pair,
+              tokens: addresses.pools[poolId].tokens
+            };
+            break;
+          }
+        }
+        
+        tokenInfo.pool = poolInfo;
       }
       
-      pathInfo.push({ address: tokenAddress, symbol: tokenSymbol });
+      pathInfo.push(tokenInfo);
     }
     
     return pathInfo;
