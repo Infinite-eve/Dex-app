@@ -204,10 +204,22 @@ describe("Router Contract", function () {
       // 先在 token0-token1 池中执行一个大的交换，使池子失衡
       const pool01Contract = await ethers.getContractAt("Pool", pool01);
       await token0.approve(pool01, ethers.parseEther("500"));
+      
+      // 获取预期输出金额
+      const expectedOut = await pool01Contract.getAmountOut(
+        await token0.getAddress(), 
+        ethers.parseEther("500"), 
+        await token1.getAddress()
+      );
+      
+      // 添加minAmountOut参数，设置滑点容忍度为5%
+      const minAmountOut = expectedOut * 95n / 100n;
+      
       await pool01Contract.swap(
         await token0.getAddress(),
         ethers.parseEther("500"),
-        await token1.getAddress()
+        await token1.getAddress(),
+        minAmountOut
       );
       
       // 现在尝试找到从 token0 到 token1 的路径
@@ -332,6 +344,24 @@ describe("Router Contract", function () {
       
       const pools = [pool02, pool12];
       
+      // 计算路径中每一步的预期输出
+      const pool02Contract = await ethers.getContractAt("Pool", pool02);
+      const intermediateAmount = await pool02Contract.getAmountOut(
+        await token0.getAddress(),
+        amountIn,
+        await token2.getAddress()
+      );
+      
+      const pool12Contract = await ethers.getContractAt("Pool", pool12);
+      const expectedOut = await pool12Contract.getAmountOut(
+        await token2.getAddress(),
+        intermediateAmount,
+        await token1.getAddress()
+      );
+      
+      // 设置合理的最小输出金额（允许5%的滑点）
+      const minAmountOut = expectedOut * 95n / 100n;
+      
       // 记录交换前的余额
       const balanceBefore = await token1.balanceOf(user1.address);
       
@@ -339,7 +369,7 @@ describe("Router Contract", function () {
       await router.connect(user1).swapWithPath(
         await token0.getAddress(),
         amountIn,
-        0, // amountOutMin = 0，意味着接受任何输出金额
+        minAmountOut, // 设置允许5%滑点的最小输出金额
         path,
         pools,
         user1.address,
@@ -348,7 +378,7 @@ describe("Router Contract", function () {
       
       // 检查交换后的余额
       const balanceAfter = await token1.balanceOf(user1.address);
-      expect(balanceAfter).to.be.gt(balanceBefore);
+      expect(balanceAfter - balanceBefore).to.be.gte(minAmountOut);
     });
 
     it("Should swap tokens using offchain calculated path", async function () {
@@ -365,6 +395,20 @@ describe("Router Contract", function () {
       expect(path.length).to.be.gte(2);
       expect(pools.length).to.be.gte(1);
       
+      // 计算预期输出金额
+      let expectedAmount = amountIn;
+      for (let i = 0; i < path.length - 1; i++) {
+        const poolContract = await ethers.getContractAt("Pool", pools[i]);
+        expectedAmount = await poolContract.getAmountOut(
+          path[i],
+          expectedAmount,
+          path[i + 1]
+        );
+      }
+      
+      // 设置合理的最小输出金额（允许5%的滑点）
+      const minAmountOut = expectedAmount * 95n / 100n;
+      
       // 记录交换前的余额
       const balanceBefore = await token1.balanceOf(user1.address);
       
@@ -372,7 +416,7 @@ describe("Router Contract", function () {
       await router.connect(user1).swapWithPath(
         await token0.getAddress(),
         amountIn,
-        0, // amountOutMin = 0，意味着接受任何输出金额
+        minAmountOut, // 设置允许5%滑点的最小输出金额
         path,
         pools,
         user1.address,
@@ -381,7 +425,7 @@ describe("Router Contract", function () {
       
       // 检查交换后的余额
       const balanceAfter = await token1.balanceOf(user1.address);
-      expect(balanceAfter).to.be.gt(balanceBefore);
+      expect(balanceAfter - balanceBefore).to.be.gte(minAmountOut);
     });
   });
   
