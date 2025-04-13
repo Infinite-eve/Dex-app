@@ -193,7 +193,7 @@ contract Router is ReentrancyGuard {
             }
             
             // 尝试不同的代币顺序
-            address[] memory combinations = new address[](6);
+            // address[] memory combinations = new address[](6);
             uint256 combinationCount = 0;
             
             // 所有可能的三币组合顺序

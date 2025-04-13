@@ -9,7 +9,7 @@ import { Card, Tabs, Tab, Row, Col, Form, Button, Container, Badge, Table, Dropd
 /* Interaction with Backend */
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives, getSmartAmountOut, findBestSwapPath, smartSwapTokens, getPathInfo } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives, getSmartAmountOut, smartSwapTokens, getPathInfo } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
