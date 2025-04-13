@@ -69,6 +69,9 @@ function App() {
   // 所有支持的代币
   const supportedTokens = ['ALPHA', 'BETA', 'GAMMA'];
 
+  // 添加滑点状态变量
+  const [slippage, setSlippage] = useState(500); // 默认5%滑点
+
   // Effect to fetch available pools when component loads
   useEffect(() => {
     const pools = getAvailablePools();
@@ -287,28 +290,46 @@ function App() {
 
   const handleSwap = async () => {
     try {
-      if (!contracts) return;
+      if (!contracts || !account) {
+        alert("Please connect your wallet first");
+        return;
+      }
 
       const tokenIn = fromToken;
       const tokenOut = toToken;
+      const amountIn = parseFloat(fromAmount);
 
-      // 计算手续费
-      const fee = parseFloat(fromAmount) * 0.003;
-      console.log(tokenIn,fromAmount,tokenOut,fee)
-      console.log(fromToken,toToken)
-      await swapTokens(contracts, tokenIn, fromAmount, tokenOut);
+      if (isNaN(amountIn) || amountIn <= 0) {
+        alert("Please enter a valid input amount");
+        return;
+      }
 
-      // 更新所有信息
-      await updatePoolAndBalances();
+      // 获取预期输出数量
+      const expectedAmountOut = await getAmountOut(contracts, tokenIn, amountIn, tokenOut);
+      const expectedAmountOutNum = parseFloat(expectedAmountOut);
+      
+      // 根据滑点计算最小输出数量
+      const minAmountOut = expectedAmountOutNum * (1 - slippage / 10000);
+      const minAmountOutWei = ethers.parseEther(minAmountOut.toString());
 
-      // Reset input fields
-      setFromAmount('');
-      setToAmount('');
-      // 显示包含手续费的成功消息
-      alert(`Swap completed successfully!\nAmount: ${fromAmount} ${fromToken}\nFee: ${fee.toFixed(6)} ${fromToken} (0.3%)`);
+      // 使用用户设置的滑点值
+      const tx = await swapTokens(contracts, tokenIn, amountIn, tokenOut, slippage);
+      await tx.wait();
+
+      // 更新余额
+      await updatePoolAndBalances(contracts);
+      alert("Swap successful!");
     } catch (error) {
-      console.error(error);
-      alert('Failed to swap tokens');
+      console.error("Error in swap:", error);
+      if (error.message.includes("Slippage too high")) {
+        alert("Slippage too high, please adjust slippage settings or try again later");
+      } else if (error.message.includes("Insufficient")) {
+        alert("Insufficient balance, please check your token balances");
+      } else if (error.message.includes("Transfer")) {
+        alert("Token transfer failed, please check authorization status");
+      } else {
+        alert("Swap failed: " + error.message);
+      }
     }
   };
 

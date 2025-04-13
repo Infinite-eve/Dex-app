@@ -36,6 +36,15 @@ contract Pool is LPToken, ReentrancyGuard {
     mapping(address => uint256) public lpFee; // 单独存储交易费用
     mapping(address => uint256) public liquidityProviderIncentives; // LP激励池
 
+    // 滑点控制相关常量
+    uint256 public constant SLIPPAGE_DENOMINATOR = 10000;
+    uint256 public constant MIN_SLIPPAGE = 10; // 最小0.1%
+    uint256 public constant MAX_SLIPPAGE = 1000; // 最大10%
+    uint256 public maxSlippage = 500; // 默认5%
+
+    // 代币滑点限制映射
+    mapping(address => uint256) public tokenMaxSlippage; // 各代币的滑点限制
+
     //事件用于记录流动性池中的代币添加和交换操作
     event AddedLiquidity(
         address[] token_add,
@@ -58,6 +67,15 @@ contract Pool is LPToken, ReentrancyGuard {
         address indexed recipient,
         uint256 amount,
         string incentiveType
+    );
+
+    event SlippageProtectionTriggered(
+        address indexed user,
+        string operation,
+        address indexed token,
+        uint256 expectedAmount,
+        uint256 actualAmount,
+        uint256 slippage
     );
 
     //构造函数，用于初始化流动性池
@@ -112,10 +130,37 @@ contract Pool is LPToken, ReentrancyGuard {
         return amountOut;
     }
 
+    // 计算滑点
+    function calculateSlippage(
+        uint256 expectedAmount,
+        uint256 actualAmount
+    ) public pure returns (uint256) {
+        if (actualAmount >= expectedAmount) return 0;
+        return ((expectedAmount - actualAmount) * SLIPPAGE_DENOMINATOR) / expectedAmount;
+    }
+
+    // 设置最大滑点
+    function setMaxSlippage(uint256 _maxSlippage) external {
+        require(msg.sender == factory, "Only factory can set slippage");
+        require(_maxSlippage <= MAX_SLIPPAGE, "Max slippage too high");
+        require(_maxSlippage >= MIN_SLIPPAGE, "Max slippage too low");
+        maxSlippage = _maxSlippage;
+    }
+
+    // 设置代币最大滑点
+    function setTokenMaxSlippage(address token, uint256 _maxSlippage) external {
+        require(msg.sender == factory, "Only factory can set token slippage");
+        require(_maxSlippage <= MAX_SLIPPAGE, "Max slippage too high");
+        require(_maxSlippage >= MIN_SLIPPAGE, "Max slippage too low");
+        tokenMaxSlippage[token] = _maxSlippage;
+    }
+
+    // 修改 swap 函数，添加滑点保护
     function swap(
         address tokenIn,
         uint256 amountIn,
-        address tokenOut
+        address tokenOut,
+        uint256 minAmountOut  // 添加最小输出数量参数
     ) public nonReentrant {
         // input validity checks
         require(tokenIn != tokenOut, "Same tokens");
@@ -125,7 +170,6 @@ contract Pool is LPToken, ReentrancyGuard {
 
         // Check balances
         uint256 balanceOut = tokenBalances[tokenOut];
-        uint256 balanceIn = tokenBalances[tokenIn];
         require(balanceOut > 0, "Insufficient output token liquidity");
         
         // 计算交易费用
@@ -136,6 +180,14 @@ contract Pool is LPToken, ReentrancyGuard {
         uint256 amountOut = getAmountOut(tokenIn, amountIn, tokenOut);
         require(amountOut > 0, "Zero output amount");
         require(amountOut <= balanceOut, "Insufficient output token balance");
+
+        // 计算预期输出数量
+        uint256 expectedAmountOut = getAmountOut(tokenIn, amountIn, tokenOut);
+        
+        // 检查滑点
+        uint256 slippage = calculateSlippage(expectedAmountOut, minAmountOut);
+        require(slippage <= maxSlippage, "Slippage too high");
+        require(expectedAmountOut >= minAmountOut, "Insufficient output amount");
 
         // swapping tokens
         require(
@@ -375,5 +427,10 @@ contract Pool is LPToken, ReentrancyGuard {
         require(msg.sender == factory, "Only factory can set trading fee");
         require(_tradingFee <= 100, "Fee too high"); // 限制最高费率为 1%
         tradingFee = _tradingFee;
+    }
+
+    // 获取代币数组长度
+    function getTokensLength() external view returns (uint256) {
+        return i_tokens.length;
     }
 }

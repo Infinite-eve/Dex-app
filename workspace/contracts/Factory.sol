@@ -2,15 +2,39 @@
 pragma solidity ^0.8.20;
 
 import "./Pool.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Factory {
+contract Factory is Ownable {
     // 使用排序后的代币数组哈希作为键
     mapping(bytes32 => address) public pools;
     address[] public supportedTokens;
     
+    // 滑点相关常量
+    uint256 public constant MIN_SLIPPAGE = 10; // 0.1%
+    uint256 public constant MAX_SLIPPAGE = 1000; // 10%
+    
     event PoolCreated(
+        address poolAddress,
         address[] tokens
     );
+
+    // 全局滑点控制相关变量
+    uint256 public globalMaxSlippage = 500; // 默认5%
+    mapping(address => uint256) public poolMaxSlippage; // 各池子的滑点限制
+    mapping(address => uint256) public tokenMaxSlippage; // 各代币的滑点限制
+
+    // 滑点相关事件
+    event GlobalSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
+    event PoolSlippageUpdated(address indexed pool, uint256 oldSlippage, uint256 newSlippage);
+    event TokenSlippageUpdated(address indexed token, uint256 oldSlippage, uint256 newSlippage);
+
+    constructor() Ownable(msg.sender) {}
+
+    // 内部函数：根据代币数组获取池子地址
+    function _getPool(address[] memory tokens) internal view returns (address) {
+        bytes32 poolKey = keccak256(abi.encodePacked(tokens));
+        return pools[poolKey];
+    }
 
     // 创建任意代币数量的流动性池
     function createPool(address[] memory tokens) external returns (address) {
@@ -31,7 +55,7 @@ contract Factory {
         // 维护支持的代币列表
         _updateSupportedTokens(tokens);
 
-        emit PoolCreated(tokens);
+        emit PoolCreated(pool, tokens);
         return pool;
     }
 
@@ -107,5 +131,64 @@ contract Factory {
             }
         }
         return true;
+    }
+
+    // 设置全局最大滑点
+    function setGlobalMaxSlippage(uint256 _maxSlippage) external onlyOwner {
+        require(_maxSlippage <= MAX_SLIPPAGE, "Max slippage too high");
+        require(_maxSlippage >= MIN_SLIPPAGE, "Max slippage too low");
+        
+        uint256 oldSlippage = globalMaxSlippage;
+        globalMaxSlippage = _maxSlippage;
+        
+        emit GlobalSlippageUpdated(oldSlippage, _maxSlippage);
+    }
+
+    // 设置特定池子的滑点限制
+    function setPoolMaxSlippage(address poolAddress, uint256 _maxSlippage) external onlyOwner {
+        require(pools[getPoolKey(_getPoolTokens(poolAddress))] == poolAddress, "Invalid pool");
+        require(_maxSlippage <= globalMaxSlippage, "Slippage exceeds global limit");
+        require(_maxSlippage >= MIN_SLIPPAGE, "Max slippage too low");
+        
+        uint256 oldSlippage = poolMaxSlippage[poolAddress];
+        poolMaxSlippage[poolAddress] = _maxSlippage;
+        Pool(poolAddress).setMaxSlippage(_maxSlippage);
+        
+        emit PoolSlippageUpdated(poolAddress, oldSlippage, _maxSlippage);
+    }
+
+    // 设置特定代币的滑点限制
+    function setTokenMaxSlippage(address token, uint256 _maxSlippage) external onlyOwner {
+        require(_maxSlippage <= globalMaxSlippage, "Slippage exceeds global limit");
+        require(_maxSlippage >= MIN_SLIPPAGE, "Max slippage too low");
+        
+        uint256 oldSlippage = tokenMaxSlippage[token];
+        tokenMaxSlippage[token] = _maxSlippage;
+        
+        // 更新所有包含该代币的池子
+        for (uint i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                address[] memory poolTokens = new address[](2);
+                poolTokens[0] = token;
+                poolTokens[1] = supportedTokens[(i + 1) % supportedTokens.length];
+                address pool = _getPool(poolTokens);
+                if (pool != address(0)) {
+                    Pool(pool).setTokenMaxSlippage(token, _maxSlippage);
+                }
+            }
+        }
+        
+        emit TokenSlippageUpdated(token, oldSlippage, _maxSlippage);
+    }
+
+    // 获取池子的代币列表
+    function _getPoolTokens(address poolAddress) internal view returns (address[] memory) {
+        Pool pool = Pool(poolAddress);
+        uint256 length = pool.getTokensLength();  // 使用新的函数获取长度
+        address[] memory tokens = new address[](length);
+        for (uint i = 0; i < length; i++) {
+            tokens[i] = pool.i_tokens_addresses(i);
+        }
+        return tokens;
     }
 }
