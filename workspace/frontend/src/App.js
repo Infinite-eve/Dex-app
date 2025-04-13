@@ -907,11 +907,11 @@ function App() {
                         <>
                           {/* 没有路由信息时显示简单路径 */}
                           <Badge bg="primary" className="me-2">
-                            {supportedTokens[parseInt(fromToken.replace('token', ''))]}
+                            {supportedTokens[parseInt(smartFromToken.replace('token', ''))]}
                           </Badge>
                           <i className="bi bi-arrow-right mx-2"></i>
                           <Badge bg="success" className="me-2">
-                            {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                            {supportedTokens[parseInt(smartToToken.replace('token', ''))]}
                           </Badge>
                         </>
                       )}
@@ -933,7 +933,7 @@ function App() {
                 <Button
                   variant="primary"
                   onClick={handleSmartSwap}
-                  disabled={!isWalletConnected || !fromAmount || fromAmount <= 0}
+                  disabled={!isWalletConnected || !smartFromAmount || smartFromAmount <= 0}
                 >
                   Smart Swap
                 </Button>
