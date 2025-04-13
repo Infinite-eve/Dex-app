@@ -256,9 +256,16 @@ contract Router is ReentrancyGuard {
             // 批准池子合约使用代币
             IERC20(currentIn).approve(currentPool, amounts[i]);
             
-            // 执行交换
+            // 获取预期输出金额
             amounts[i + 1] = Pool(currentPool).getAmountOut(currentIn, amounts[i], currentOut);
-            Pool(currentPool).swap(currentIn, amounts[i], currentOut);
+            
+            // 为每一步计算最小输出金额（考虑滑点）
+            uint256 minOutForThisStep = i == path.length - 2 
+                ? amountOutMin // 最后一步使用用户提供的最小输出金额
+                : calculateMinimumAmountOut(amounts[i + 1], 50); // 中间步骤使用0.5%滑点
+            
+            // 执行带滑点保护的交换
+            Pool(currentPool).swap(currentIn, amounts[i], currentOut, minOutForThisStep);
             
             // 检查池子是否实际转移了代币
             require(
@@ -331,9 +338,16 @@ contract Router is ReentrancyGuard {
             // 批准池子合约使用代币
             IERC20(currentIn).approve(currentPool, amounts[i]);
             
-            // 执行交换
+            // 获取预期输出金额
             amounts[i + 1] = Pool(currentPool).getAmountOut(currentIn, amounts[i], currentOut);
-            Pool(currentPool).swap(currentIn, amounts[i], currentOut);
+            
+            // 为每一步计算最小输出金额（考虑滑点）
+            uint256 minOutForThisStep = i == path.length - 2 
+                ? amountOutMin // 最后一步使用用户提供的最小输出金额
+                : calculateMinimumAmountOut(amounts[i + 1], 50); // 中间步骤使用0.5%滑点
+            
+            // 执行带滑点保护的交换
+            Pool(currentPool).swap(currentIn, amounts[i], currentOut, minOutForThisStep);
             
             // 检查池子是否实际转移了代币
             require(
@@ -404,5 +418,18 @@ contract Router is ReentrancyGuard {
         }
         
         return (amounts[amounts.length - 1], bestPath);
+    }
+    
+    /**
+     * @dev 计算最小输出金额（考虑滑点）
+     * @param amountOut 期望输出金额
+     * @param slippageTolerance 滑点容忍度（以基点表示，如100表示1%）
+     * @return 考虑滑点后的最小输出金额
+     */
+    function calculateMinimumAmountOut(
+        uint256 amountOut,
+        uint256 slippageTolerance
+    ) public pure returns (uint256) {
+        return amountOut - ((amountOut * slippageTolerance) / 10000);
     }
 }
