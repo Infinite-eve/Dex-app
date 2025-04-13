@@ -61,11 +61,11 @@ e.g. npx hardhat run test/Swap.test.js --network localhost //Testing the functio
 # Troubleshooting Solution
 On-demand search with some troubleshooting commands, and test commands
 
-## (1)Clear the front-end cache to avoid front-end contracts not being updated:
+## 1.Clear the front-end cache to avoid front-end contracts not being updated:
 ```
 rm -rf node_modules/.cache
 ```
-## (2)Clear node:
+## 2.Clear node:
 **HighLight**: It is recommended to clear the node after each code tweak, otherwise there will be unknown errors
 
 After emptying the node, the cache files located in artifacts will also be gone.
@@ -73,7 +73,7 @@ After emptying the node, the cache files located in artifacts will also be gone.
 npx hardhat clean
 ```
 
-## (3)Transfer the test tokens to your address (you need to change the receiving address in the file first)
+## 3.Transfer the test tokens to your address (you need to change the receiving address in the file first)
 ```
 npx hardhat run scripts/transferDF.js --network localhost
 ```
@@ -86,7 +86,7 @@ npx hardhat run scripts/transferBETA.js --network localhost
 ```
 npx hardhat run scripts/transferGAMMA.js --network localhost
 ```
-## (4)Initial recharge of the liquidity pool
+## 4.Initial recharge of the liquidity pool
 Can run command backend for mobility recharge, default is 10 ALPHA, 20 BETA, 30 GAMMA
 ```
 npx hardhat run scripts/anotherusr_add.js --network localhost
