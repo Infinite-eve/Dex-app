@@ -11,7 +11,7 @@ async function main() {
 
   // Replace with the address of the recipient account
   //替换自己的地址
-  const recipientAddress = "0x178C4a24C06654425C0f83425FB57590e0327ee0"; // My address (from MetaMask)
+  const recipientAddress = "0xc9fc7ab0E6663d6cbD9a95C3Dc1fFe4d13430b91"; // My address (from MetaMask)
 
   const NewToken = await hre.ethers.getContractFactory("NewToken");
   const Alpha = NewToken.attach(addresses.token0);

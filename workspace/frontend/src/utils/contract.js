@@ -197,13 +197,21 @@ export const getRequiredAmounts = async (contracts, amount0) => {
     }
 };
 
-export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
+export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut, slippage) => {
   try {
       const amountInWei = ethers.parseEther(amountIn.toString());
       console.log(amountInWei)
       // Get token addresses from mapping
       const tokenInAddress = contracts.tokenMapping[tokenIn].address;
       const tokenOutAddress = contracts.tokenMapping[tokenOut].address;
+      
+      // 计算预期输出数量
+      const expectedAmountOut = await getAmountOut(contracts, tokenIn, amountIn, tokenOut);
+      const expectedAmountOutNum = parseFloat(expectedAmountOut);
+      
+      // 根据滑点计算最小输出数量
+      const minAmountOut = expectedAmountOutNum * (1 - slippage / 10000);
+      const minAmountOutWei = ethers.parseEther(minAmountOut.toString());
       
       // Approve tokenIn
       const tokenInContract = contracts.tokenMapping[tokenIn].contract;
@@ -213,7 +221,8 @@ export const swapTokens = async (contracts, tokenIn, amountIn, tokenOut) => {
       const tx = await contracts.pool.contract.swap(
           tokenInAddress,
           amountInWei,
-          tokenOutAddress
+          tokenOutAddress,
+          minAmountOutWei
       );
       await tx.wait();
       return tx;
