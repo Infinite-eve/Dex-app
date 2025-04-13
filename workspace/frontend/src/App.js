@@ -683,6 +683,121 @@ function App() {
               </Form>
             </Tab>
 
+            {/* 新增 Smart Swap 标签页 */}
+            <Tab eventKey="smartSwap" title="Smart Swap">
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>From</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control
+                      type="number"
+                      value={fromAmount}
+                      onChange={handleSmartFromAmountChange}
+                      placeholder="0.00"
+                      step="0.01"
+                      className="me-2"
+                    />
+                    <Form.Select
+                      value={fromToken}
+                      onChange={(e) => setFromToken(e.target.value)}
+                      style={{ width: '120px' }}
+                    >
+                      {supportedTokens.map((token, index) => (
+                        token !== toToken && (
+                          <option key={index} value={`token${index}`}>
+                            {token}
+                          </option>
+                        )
+                      ))}
+                    </Form.Select>
+                  </div>
+                </Form.Group>
+
+                <div className="text-center my-3">
+                  <Button variant="outline-secondary" onClick={handleTokenSwitch}>
+                    ↑↓
+                  </Button>
+                </div>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>To</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control
+                      type="number"
+                      value={formatNumber(toAmount)}
+                      readOnly
+                      placeholder="0.00"
+                      className="me-2"
+                    />
+                    <Form.Select
+                      value={toToken}
+                      onChange={(e) => setToToken(e.target.value)}
+                      style={{ width: '120px' }}
+                    >
+                      {supportedTokens.map((token, index) => (
+                        token !== fromToken && (
+                          <option key={index} value={`token${index}`}>
+                            {token}
+                          </option>
+                        )
+                      ))}
+                    </Form.Select>
+                  </div>
+                </Form.Group>
+
+                {/* 添加滑点设置 */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Slippage Tolerance: {slippage/100}%</Form.Label>
+                  <div className="d-flex align-items-center">
+                    <Form.Range 
+                      value={slippage}
+                      onChange={(e) => setSlippage(parseInt(e.target.value))}
+                      min="10"
+                      max="1000"
+                      step="10"
+                      className="me-2 flex-grow-1"
+                    />
+                    <div className="text-muted" style={{width: '60px'}}>
+                      {slippage/100}%
+                    </div>
+                  </div>
+                  <div className="d-flex mt-2 gap-2">
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(50)}>0.5%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(100)}>1%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(300)}>3%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(500)}>5%</Button>
+                  </div>
+                </Form.Group>
+
+                {/* 显示路由信息 */}
+                <Card className="bg-light mb-3">
+                  <Card.Body>
+                    <Card.Title className="fs-6">Routing</Card.Title>
+                    <div className="d-flex align-items-center">
+                      <Badge bg="primary" className="me-2">
+                        {supportedTokens[parseInt(fromToken.replace('token', ''))]}
+                      </Badge>
+                      <i className="bi bi-arrow-right mx-2"></i>
+                      <Badge bg="success" className="me-2">
+                        {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                      </Badge>
+                      <div className="ms-auto text-muted small">
+                        Estimated output with {slippage/100}% slippage: {formatNumber(toAmount * (1 - slippage/10000))} {supportedTokens[parseInt(toToken.replace('token', ''))]}
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+
+                <Button
+                  variant="primary"
+                  onClick={handleSmartSwap}
+                  disabled={!isWalletConnected || !fromAmount || fromAmount <= 0}
+                >
+                  Smart Swap
+                </Button>
+              </Form>
+            </Tab>
+
             <Tab eventKey="liquidity" title="Add Liquidity">
               <Form>
                 {contracts && contracts.tokensInPool && contracts.tokensInPool.map((tokenKey, index) => (
