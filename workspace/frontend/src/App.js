@@ -925,7 +925,12 @@ function App() {
                     )}
                     
                     <div className="mt-2 text-muted small">
-                      Estimated output with {slippage/100}% slippage: {formatNumber(smartToAmount * (1 - slippage/10000))} {supportedTokens[parseInt(smartToToken.replace('token', ''))]}
+                      {smartFromAmount && parseFloat(smartFromAmount) > 0 && (
+                        <>
+                          <i className="bi bi-exclamation-circle me-1"></i>
+                          Fee: {formatNumber(parseFloat(smartFromAmount) * 0.003)} {supportedTokens[parseInt(smartFromToken.replace('token', ''))]} (0.3% per swap)
+                        </>
+                      )}
                     </div>
                   </Card.Body>
                 </Card>
