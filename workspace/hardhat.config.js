@@ -7,7 +7,8 @@ module.exports = {
       optimizer: {
         enabled: true,
         runs: 200
-      }
+      },
+      viaIR: true // 启用 IR 模式以解决堆栈太深的问题
     }
   },
   networks: {

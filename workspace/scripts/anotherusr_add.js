@@ -1,22 +1,43 @@
 const hre = require("hardhat");
 const { ethers } = require("hardhat");
+const addresses = require("../frontend/src/utils/deployed-addresses.json");
+
 
 async function main() {
   try {
+    //检查钱包内的余额
+    console.log("检查钱包内的余额");
+    //替换自己的地址
+    const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
+    const NewToken = await hre.ethers.getContractFactory("NewToken");
+// 输出账号内三种币
+    const Alpha = NewToken.attach(addresses.token0); const balanceAlphaToOld = await Alpha.balanceOf(`${recipientAddress}`);
+    console.log("Address:", recipientAddress);
+    console.log("Balance Alpha:", ethers.formatEther(balanceAlphaToOld), "ALPHA");
+    const Beta = NewToken.attach(addresses.token1); const balanceBetaToOld = await Beta.balanceOf(`${recipientAddress}`);
+    // 输出账号
+    console.log("Address:", recipientAddress);
+    console.log("Balance Beta:", ethers.formatEther(balanceBetaToOld), "BETA");
+    const Gamma = NewToken.attach(addresses.token2); const balanceGammaToOld = await Gamma.balanceOf(`${recipientAddress}`);
+    // 输出账号
+    console.log("Address:", recipientAddress);
+    console.log("Balance Gamma:", ethers.formatEther(balanceGammaToOld), "GAMMA");
+
+
     console.log("开始向流动性池添加资金...");
 
     // 获取账户 - 使用第一个账户
     const [user] = await ethers.getSigners();
     console.log(`使用账户: ${user.address}`);
 
-    // 直接使用池子地址
-    const poolAddress = "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81"; 
+    // 直接使用池子地址 Pool1
+    const poolAddress = "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81";
     console.log(`使用指定的池子地址: ${poolAddress}`);
-    
+
     // 获取Pool合约实例
     const Pool = await ethers.getContractFactory("Pool");
     const pool = await Pool.attach(poolAddress);
-    
+
     // 检查合约函数接口
     console.log("池子合约函数接口:");
     let hasBalanceOf = false;
@@ -28,7 +49,7 @@ async function main() {
       }
     }
     console.log(`合约${hasBalanceOf ? "有" : "没有"} balanceOf 函数`);
-    
+
     // 获取代币地址
     const alphaAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Alpha代币地址
     const betaAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";  // Beta代币地址
@@ -66,7 +87,7 @@ async function main() {
       const Token = await ethers.getContractFactory("NewToken");
       const token = await Token.attach(tokenAddresses[i]);
       tokenInstances.push(token);
-      
+
       // 查询代币余额
       const balance = await token.balanceOf(user.address);
       console.log(`账户 ${user.address} 持有 ${ethers.formatEther(balance)} ${await token.symbol()}`);
@@ -110,16 +131,16 @@ async function main() {
       const amount1 = ethers.parseEther("20"); // 20个Beta代币
       const amount2 = ethers.parseEther("30"); // 30个Gamma代币
       const amounts = [amount0, amount1, amount2];
-      
+
       console.log("尝试添加流动性: addLiquidity(address[], uint256[])");
       console.log("代币数量:", amounts.map(a => ethers.formatEther(a)));
-      
+
       const tx = await pool.connect(user).addLiquidity(tokenAddresses, amounts);
       console.log("交易已发送，等待确认...");
       const receipt = await tx.wait();
       console.log(`流动性添加成功，交易哈希: ${receipt.hash}`);
       console.log(`Gas使用: ${receipt.gasUsed.toString()}`);
-      
+
       // 检查事件
       if (receipt.logs) {
         console.log(`交易包含 ${receipt.logs.length} 个日志事件`);
@@ -136,7 +157,7 @@ async function main() {
           }
         }
       }
-      
+
       // 直接进行下一步操作
       console.log("添加流动性后池子中的代币余额:");
       for (let i = 0; i < tokenAddresses.length; i++) {
@@ -147,7 +168,7 @@ async function main() {
           console.log(`无法获取池子中 ${await tokenInstances[i].symbol()} 余额`);
         }
       }
-      
+
       // 同步后再次检查
       for (let i = 0; i < tokenInstances.length; i++) {
         const token = tokenInstances[i];
@@ -158,13 +179,13 @@ async function main() {
       // 尝试使用不同方法获取LP代币余额
       try {
         console.log("尝试获取LP余额...");
-        
+
         // 方法1：直接调用balanceOf
         const lpBalance = await pool.balanceOf(user.address);
         console.log(`账户LP余额: ${ethers.formatEther(lpBalance)}`);
       } catch (error) {
         console.log("无法获取LP余额，尝试其他方法...");
-        
+
         try {
           // 方法2：通过低级调用获取余额
           const lpTokenInterface = new ethers.Interface(["function balanceOf(address) view returns (uint256)"]);
@@ -192,6 +213,24 @@ async function main() {
     if (error.code) console.error("错误代码:", error.code);
     if (error.data) console.error("错误数据:", error.data);
   }
+
+      //检查钱包内的余额
+      console.log("添加后检查钱包内的余额");
+      //替换自己的地址
+      const recipientAddress = "0x340BdD53512704732F8F69104d674BB5a5F3D6aD"; // My address (from MetaMask)
+      const NewToken = await hre.ethers.getContractFactory("NewToken");
+  // 输出账号内三种币
+      const Alpha = NewToken.attach(addresses.token0); const balanceAlphaToOld = await Alpha.balanceOf(`${recipientAddress}`);
+      console.log("Address:", recipientAddress);
+      console.log("Balance Alpha:", ethers.formatEther(balanceAlphaToOld), "ALPHA");
+      const Beta = NewToken.attach(addresses.token1); const balanceBetaToOld = await Beta.balanceOf(`${recipientAddress}`);
+      // 输出账号
+      console.log("Address:", recipientAddress);
+      console.log("Balance Beta:", ethers.formatEther(balanceBetaToOld), "BETA");
+      const Gamma = NewToken.attach(addresses.token2); const balanceGammaToOld = await Gamma.balanceOf(`${recipientAddress}`);
+      // 输出账号
+      console.log("Address:", recipientAddress);
+      console.log("Balance Gamma:", ethers.formatEther(balanceGammaToOld), "GAMMA");
 }
 
 

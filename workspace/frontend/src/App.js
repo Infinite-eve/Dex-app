@@ -7,9 +7,9 @@ import Logo from "./assets/icons/currency-exchange.svg"
 import { Card, Tabs, Tab, Row, Col, Form, Button, Container, Badge, Table, Dropdown } from 'react-bootstrap';
 
 /* Interaction with Backend */
-import { React, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';  // Import ethers.js library
-import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives } from './utils/contract';      // Import helper functions
+import { getAmountOut, getContracts, getPoolInfo, getTokenBalances, getRequiredAmounts, swapTokens, addLiquidity, withdrawLiquidity, getLPTokenInfo, getAvailablePools, getPoolFees, getClaimableRewards, claimLpIncentives, getSmartAmountOut, smartSwapTokens, getPathInfo } from './utils/contract';      // Import helper functions
 
 // 添加格式化数字的辅助函数
 const formatNumber = (number) => {
@@ -38,6 +38,7 @@ function App() {
 
   // 添加新的状态变量
   const [rewardAmounts, setRewardAmounts] = useState({ token0: '', token1: '', token2: '' });
+  const [routingPath, setRoutingPath] = useState([]); // 智能路由的路径信息
 
   /* balance related */
   const [balance0, setBalance0] = useState(0);
@@ -55,6 +56,12 @@ function App() {
   const [toToken, setToToken] = useState('token1');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
+  
+  /* 添加独立的 Smart Swap 币种选择器状态 */
+  const [smartFromToken, setSmartFromToken] = useState('token0');
+  const [smartToToken, setSmartToToken] = useState('token1');
+  const [smartFromAmount, setSmartFromAmount] = useState('');
+  const [smartToAmount, setSmartToAmount] = useState('');
 
   /* add liquidity related */
   const [liquidityAmounts, setLiquidityAmounts] = useState({
@@ -446,6 +453,81 @@ function App() {
     }
   };
 
+  // 处理智能交换输入变化
+  const handleSmartFromAmountChange = async (e) => {
+    const value = e.target.value;
+    setSmartFromAmount(value);
+
+    if (value && !isNaN(value)) {
+      try {
+        // 使用Router获取智能路由的数量预估
+        const { amountOut, path, pools } = await getSmartAmountOut(contracts, smartFromToken, value, smartToToken);
+        setSmartToAmount(amountOut);
+        
+        // 获取并设置路径信息，用于显示
+        if (path && path.length > 0) {
+          const pathInfo = await getPathInfo(contracts, path, pools);
+          setRoutingPath(pathInfo);
+        }
+      } catch (error) {
+        console.error("Error calculating smart output:", error);
+        setSmartToAmount('0');
+      }
+    } else {
+      setSmartToAmount('');
+      setRoutingPath([]);
+    }
+  };
+
+  // 执行智能交换
+  const handleSmartSwap = async () => {
+    try {
+      if (!contracts || !account) {
+        alert("Please connect your wallet first");
+        return;
+      }
+
+      const tokenIn = smartFromToken;
+      const tokenOut = smartToToken;
+      const amountIn = parseFloat(smartFromAmount);
+
+      if (isNaN(amountIn) || amountIn <= 0) {
+        alert("Please enter a valid input amount");
+        return;
+      }
+
+      // 执行智能交换
+      const tx = await smartSwapTokens(
+        contracts, 
+        tokenIn, 
+        amountIn, 
+        tokenOut, 
+        slippage, 
+        account
+      );
+      
+      await tx.wait();
+
+      // 重置输入
+      setSmartFromAmount('');
+      setSmartToAmount('');
+      setRoutingPath([]);
+      
+      // 更新余额
+      await updatePoolAndBalances(contracts);
+      alert("Smart Swap successful!");
+    } catch (error) {
+      console.error("Error in smart swap:", error);
+      if (error.message.includes("Slippage too high")) {
+        alert("Slippage too high, please adjust slippage settings or try again later");
+      } else if (error.message.includes("Insufficient")) {
+        alert("Insufficient balance, please check your token balances");
+      } else {
+        alert("Smart Swap failed: " + error.message);
+      }
+    }
+  };
+
   return (
     <div className="container py-5">
       <nav className="bg-light py-3 shadow-sm"> 
@@ -679,6 +761,186 @@ function App() {
                   disabled={!isWalletConnected || !fromAmount || fromAmount <= 0}
                 >
                   Swap
+                </Button>
+              </Form>
+            </Tab>
+
+            {/* 新增 Smart Swap 标签页 */}
+            <Tab eventKey="smartSwap" title="Smart Swap">
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>From</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control
+                      type="number"
+                      value={smartFromAmount}
+                      onChange={handleSmartFromAmountChange}
+                      placeholder="0.00"
+                      step="0.01"
+                      className="me-2"
+                    />
+                    <Form.Select
+                      value={smartFromToken}
+                      onChange={(e) => {
+                        setSmartFromToken(e.target.value);
+                        setSmartFromAmount('');
+                        setSmartToAmount('');
+                        setRoutingPath([]);
+                      }}
+                      style={{ width: '120px' }}
+                    >
+                      {supportedTokens.map((token, index) => (
+                        token !== supportedTokens[parseInt(smartToToken.replace('token', ''))] && (
+                          <option key={index} value={`token${index}`}>
+                            {token}
+                          </option>
+                        )
+                      ))}
+                    </Form.Select>
+                  </div>
+                </Form.Group>
+
+                <div className="text-center my-3">
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={() => {
+                      const tempToken = smartFromToken;
+                      setSmartFromToken(smartToToken);
+                      setSmartToToken(tempToken);
+                      setSmartFromAmount('');
+                      setSmartToAmount('');
+                      setRoutingPath([]);
+                    }}
+                  >
+                    ↑↓
+                  </Button>
+                </div>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>To</Form.Label>
+                  <div className="d-flex">
+                    <Form.Control
+                      type="number"
+                      value={formatNumber(smartToAmount)}
+                      readOnly
+                      placeholder="0.00"
+                      className="me-2"
+                    />
+                    <Form.Select
+                      value={smartToToken}
+                      onChange={(e) => {
+                        setSmartToToken(e.target.value);
+                        setSmartFromAmount('');
+                        setSmartToAmount('');
+                        setRoutingPath([]);
+                      }}
+                      style={{ width: '120px' }}
+                    >
+                      {supportedTokens.map((token, index) => (
+                        token !== supportedTokens[parseInt(smartFromToken.replace('token', ''))] && (
+                          <option key={index} value={`token${index}`}>
+                            {token}
+                          </option>
+                        )
+                      ))}
+                    </Form.Select>
+                  </div>
+                </Form.Group>
+
+                {/* 添加滑点设置 */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Slippage Tolerance: {slippage/100}%</Form.Label>
+                  <div className="d-flex align-items-center">
+                    <Form.Range 
+                      value={slippage}
+                      onChange={(e) => setSlippage(parseInt(e.target.value))}
+                      min="10"
+                      max="1000"
+                      step="10"
+                      className="me-2 flex-grow-1"
+                    />
+                    <div className="text-muted" style={{width: '60px'}}>
+                      {slippage/100}%
+                    </div>
+                  </div>
+                  <div className="d-flex mt-2 gap-2">
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(50)}>0.5%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(100)}>1%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(300)}>3%</Button>
+                    <Button size="sm" variant="outline-secondary" onClick={() => setSlippage(500)}>5%</Button>
+                  </div>
+                </Form.Group>
+
+                {/* 显示路由信息 */}
+                <Card className="bg-light mb-3">
+                  <Card.Body>
+                    <Card.Title className="fs-6">Routing</Card.Title>
+                    <div className="d-flex align-items-center flex-wrap">
+                      {/* 如果有路由信息，显示完整路径 */}
+                      {routingPath.length > 0 ? (
+                        <>
+                          {routingPath.map((token, index) => (
+                            <React.Fragment key={index}>
+                              <Badge bg={index === 0 ? "primary" : (index === routingPath.length - 1 ? "success" : "secondary")} className="me-2">
+                                {token.symbol}
+                              </Badge>
+
+                              {/* 显示池子信息（如果有） */}
+                              {index < routingPath.length - 1 && token.pool && (
+                                <div className="d-inline-flex align-items-center">
+                                  <i className="bi bi-arrow-right mx-1"></i>
+                                  <Badge bg="info" pill className="small mx-1">
+                                    via {token.pool.pair || token.pool.id}
+                                  </Badge>
+                                  <i className="bi bi-arrow-right mx-1"></i>
+                                </div>
+                              )}
+                              
+                              {/* 如果只有代币路径没有池子信息，则显示简单箭头 */}
+                              {index < routingPath.length - 1 && !token.pool && (
+                                <i className="bi bi-arrow-right mx-2"></i>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {/* 没有路由信息时显示简单路径 */}
+                          <Badge bg="primary" className="me-2">
+                            {supportedTokens[parseInt(smartFromToken.replace('token', ''))]}
+                          </Badge>
+                          <i className="bi bi-arrow-right mx-2"></i>
+                          <Badge bg="success" className="me-2">
+                            {supportedTokens[parseInt(smartToToken.replace('token', ''))]}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                    
+                    {routingPath.length > 2 && (
+                      <div className="mt-2 small text-info">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Smart Swap has found a better route through intermediate tokens.
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 text-muted small">
+                      {smartFromAmount && parseFloat(smartFromAmount) > 0 && (
+                        <>
+                          <i className="bi bi-exclamation-circle me-1"></i>
+                          Fee: {formatNumber(parseFloat(smartFromAmount) * 0.003)} {supportedTokens[parseInt(smartFromToken.replace('token', ''))]} (0.3% per swap)
+                        </>
+                      )}
+                    </div>
+                  </Card.Body>
+                </Card>
+
+                <Button
+                  variant="primary"
+                  onClick={handleSmartSwap}
+                  disabled={!isWalletConnected || !smartFromAmount || smartFromAmount <= 0}
+                >
+                  Smart Swap
                 </Button>
               </Form>
             </Tab>
